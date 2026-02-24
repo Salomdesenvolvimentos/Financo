@@ -1,72 +1,86 @@
 // ============================================
-// Página: Login
-// Página inicial de autenticação
+// Página: Cadastro
+// Página de registro de novos usuários
 // ============================================
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { signIn } from '@/services/auth';
-import { useAuth } from '@/hooks/use-auth';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { signUp } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, DollarSign } from 'lucide-react';
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  
-  // Modo local: preencher com dados de teste
-  const isLocalMode = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost:54321');
   const [formData, setFormData] = useState({
-    email: isLocalMode ? 'teste@finaco.com' : '',
-    password: isLocalMode ? '123456' : '',
+    nome: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
   });
-
-  // Redirecionar se já estiver autenticado
-  useEffect(() => {
-    if (user && !authLoading) {
-      router.push('/dashboard');
-    }
-  }, [user, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validar senhas
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: 'Erro',
+        description: 'As senhas não coincidem',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast({
+        title: 'Erro',
+        description: 'A senha deve ter no mínimo 6 caracteres',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
 
-    const { data, error } = await signIn(formData.email, formData.password);
+    const { data, error } = await signUp(
+      formData.email,
+      formData.password,
+      formData.nome
+    );
 
     if (error) {
       toast({
-        title: 'Erro ao fazer login',
+        title: 'Erro ao criar conta',
         description: error,
         variant: 'destructive',
       });
-      setLoading(false);
     } else {
       toast({
-        title: 'Login realizado com sucesso!',
+        title: 'Conta criada com sucesso!',
+        description: 'Você já pode fazer login.',
         variant: 'success',
       });
-      // Forçar reload para atualizar contexto de autenticação
-      window.location.href = '/dashboard';
+      router.push('/');
     }
-  };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+    setLoading(false);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
@@ -77,14 +91,28 @@ export default function LoginPage() {
               <DollarSign className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold">Finaco</CardTitle>
+          <CardTitle className="text-3xl font-bold">Criar Conta</CardTitle>
           <CardDescription>
-            Sistema inteligente de controle financeiro
+            Comece a controlar suas finanças hoje mesmo
           </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nome">Nome Completo</Label>
+              <Input
+                id="nome"
+                type="text"
+                placeholder="Seu nome"
+                value={formData.nome}
+                onChange={(e) =>
+                  setFormData({ ...formData, nome: e.target.value })
+                }
+                required
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
               <Input
@@ -105,23 +133,29 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Mínimo 6 caracteres"
                 value={formData.password}
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
                 }
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
               />
             </div>
 
-            <div className="flex justify-end">
-              <Link
-                href="/auth/forgot-password"
-                className="text-sm text-primary hover:underline"
-              >
-                Esqueceu a senha?
-              </Link>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Digite a senha novamente"
+                value={formData.confirmPassword}
+                onChange={(e) =>
+                  setFormData({ ...formData, confirmPassword: e.target.value })
+                }
+                required
+                autoComplete="new-password"
+              />
             </div>
           </CardContent>
 
@@ -130,17 +164,17 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
+                  Criando conta...
                 </>
               ) : (
-                'Entrar'
+                'Criar Conta'
               )}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              Não tem uma conta?{' '}
-              <Link href="/auth/signup" className="text-primary hover:underline">
-                Cadastre-se
+              Já tem uma conta?{' '}
+              <Link href="/" className="text-primary hover:underline">
+                Fazer login
               </Link>
             </p>
           </CardFooter>
