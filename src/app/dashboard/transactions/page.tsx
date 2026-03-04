@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -50,11 +51,9 @@ import { formatCurrency, formatDate, formatDateISO } from '@/lib/utils';
 import {
   Plus,
   Search,
-  Filter,
   Edit,
   Trash2,
   Loader2,
-  Download,
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -65,6 +64,12 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<TransactionFilters>({});
   const [searchTerm, setSearchTerm] = useState('');
+
+  // inline editing state for spreadsheet-like table
+  const [editingCell, setEditingCell] = useState<
+    { id: string; field: keyof Transaction } | null
+  >(null);
+  const [editingValue, setEditingValue] = useState<any>('');
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,6 +93,14 @@ export default function TransactionsPage() {
   });
 
   // Carregar dados iniciais
+  // também escutar query param para resetar filtros
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('reset') === 'true') {
+      setFilters({});
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -113,13 +126,97 @@ export default function TransactionsPage() {
     loadData();
   }, [user, filters]);
 
+  // keep editingValue in sync when we start editing a cell
+  useEffect(() => {
+    if (editingCell) {
+      const t = transactions.find((t) => t.id === editingCell.id);
+      if (t) {
+        setEditingValue(t[editingCell.field] ?? '');
+      }
+    } else {
+      setEditingValue('');
+    }
+  }, [editingCell, transactions]);
+
+  // helper for inline saving
+  const handleInlineSave = async (
+    id: string,
+    field: keyof Transaction,
+    value: any
+  ) => {
+    setLoading(true);
+    // if this is a temporary new row, call createTransaction instead
+    if (id.startsWith('new-')) {
+      const newObj: any = { [field]: value, user_id: user?.id };
+      // also include any other filled fields from state
+      const orig = transactions.find((t) => t.id === id);
+      if (orig) Object.assign(newObj, orig);
+      delete newObj.id;
+
+      const { data, error } = await createTransaction(newObj as any);
+      if (error) {
+        toast({
+          title: 'Erro ao criar transação',
+          description: error,
+          variant: 'destructive',
+        });
+      } else if (data) {
+        // replace temp row with returned one
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === id ? data : t))
+        );
+        id = data.id;
+      }
+    } else {
+      const { error } = await updateTransaction(id, { [field]: value } as any);
+      if (error) {
+        toast({
+          title: 'Erro ao atualizar transação',
+          description: error,
+          variant: 'destructive',
+        });
+      }
+    }
+    // update local state regardless
+    setTransactions((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const updated = { ...t, [field]: value } as Transaction;
+        if (field === 'categoria_id') {
+          updated.categoria =
+            categories.find((c) => c.id === value) || null;
+        }
+        return updated;
+      })
+    );
+    setLoading(false);
+    setEditingCell(null);
+  };
+
+  const handleCellKeyDown = (
+    e: React.KeyboardEvent,
+    id: string,
+    field: keyof Transaction,
+    value: any
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleInlineSave(id, field, value);
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+    }
+  };
+
   // Abrir dialog para nova transação
+  // create a new blank row at top and start editing the description
   const handleNewTransaction = () => {
-    setEditingTransaction(null);
-    setFormData({
+    const tempId = `new-${Date.now()}`;
+    const blank: Transaction = {
+      id: tempId,
       descricao: '',
       tipo: 'despesa',
       categoria_id: '',
+      categoria: null,
       responsavel: user?.user_metadata?.nome || '',
       status: 'andamento',
       valor: 0,
@@ -129,8 +226,11 @@ export default function TransactionsPage() {
       parcelado: false,
       total_parcelas: 1,
       observacoes: '',
-    });
-    setDialogOpen(true);
+      user_id: user?.id || '',
+    };
+    setTransactions((prev) => [blank, ...prev]);
+    // start editing first cell of new row
+    setEditingCell({ id: tempId, field: 'descricao' });
   };
 
   // Abrir dialog para edição
@@ -272,203 +372,430 @@ export default function TransactionsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Transações</h1>
-          <p className="text-muted-foreground">
-            Gerencie suas receitas e despesas
-          </p>
+    <div className="space-y-4">
+      {/* Barra de Controle */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        {/* Busca */}
+        <div className="flex-1 max-w-sm">
+          <Label htmlFor="search" className="text-xs text-muted-foreground mb-1 block">Buscar transações</Label>
+          <Input
+            id="search"
+            placeholder="Descrição..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-9"
+          />
         </div>
 
+        {/* Filtros */}
+        <div className="flex gap-2 flex-wrap">
+          <div className="min-w-[140px]">
+            <Label htmlFor="filter-type" className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
+            <Select
+              value={filters.tipo || 'all'}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  tipo: value === 'all' ? undefined : (value as any),
+                })
+              }
+            >
+              <SelectTrigger id="filter-type" className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="receita">Receita</SelectItem>
+                <SelectItem value="despesa">Despesa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[140px]">
+            <Label htmlFor="filter-category" className="text-xs text-muted-foreground mb-1 block">Categoria</Label>
+            <Select
+              value={filters.categoria_id || 'all'}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  categoria_id: value === 'all' ? undefined : value,
+                })
+              }
+            >
+              <SelectTrigger id="filter-category" className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[140px]">
+            <Label htmlFor="filter-card" className="text-xs text-muted-foreground mb-1 block">Cartão</Label>
+            <Select
+              value={filters.forma_pagamento || 'all'}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  forma_pagamento: value === 'all' ? undefined : value,
+                })
+              }
+            >
+              <SelectTrigger id="filter-card" className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="Nubank">Nubank</SelectItem>
+                <SelectItem value="Santander">Santander</SelectItem>
+                <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                <SelectItem value="Pix">Pix</SelectItem>
+                <SelectItem value="Transferência">Transferência</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[140px]">
+            <Label htmlFor="filter-month" className="text-xs text-muted-foreground mb-1 block">Mês/Ano</Label>
+            <Input
+              id="filter-month"
+              type="month"
+              value={filters.mes || ''}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  mes: e.target.value || undefined,
+                })
+              }
+              className="h-9 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Ações */}
         <div className="flex gap-2">
-          <Button 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleDeleteAll}
-            variant="destructive"
             disabled={loading || transactions.length === 0}
+            title="Excluir todas as transações"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Limpar Todas
+            <Trash2 className="h-4 w-4" />
           </Button>
-          
-          <Button onClick={handleNewTransaction}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Transação
+          <Button
+            size="sm"
+            onClick={handleNewTransaction}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Nova
           </Button>
         </div>
       </div>
 
-      {/* Filtros e Busca */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            {/* Busca */}
-            <div className="space-y-2">
-              <Label>Buscar</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Descrição..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-
-            {/* Tipo */}
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select
-                value={filters.tipo || 'all'}
-                onValueChange={(value) =>
-                  setFilters({
-                    ...filters,
-                    tipo: value === 'all' ? undefined : (value as any),
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="receita">Receita</SelectItem>
-                  <SelectItem value="despesa">Despesa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status */}
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={filters.status || 'all'}
-                onValueChange={(value) =>
-                  setFilters({
-                    ...filters,
-                    status: value === 'all' ? undefined : (value as any),
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="pago">Pago</SelectItem>
-                  <SelectItem value="andamento">Em Andamento</SelectItem>
-                  <SelectItem value="vencido">Vencido</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Categoria */}
-            <div className="space-y-2">
-              <Label>Categoria</Label>
-              <Select
-                value={filters.categoria_id || 'all'}
-                onValueChange={(value) =>
-                  setFilters({
-                    ...filters,
-                    categoria_id: value === 'all' ? undefined : value,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Tabela de Transações */}
       <Card>
-        <CardHeader>
-          <CardTitle>Listagem</CardTitle>
-          <CardDescription>
-            {filteredTransactions.length} transação(ões) encontrada(s)
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Transações</CardTitle>
+              <CardDescription className="mt-1">
+                {filteredTransactions.length} de {transactions.length}
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-6">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2">Descrição</th>
-                    <th className="text-left py-3 px-2">Tipo</th>
-                    <th className="text-left py-3 px-2">Categoria</th>
-                    <th className="text-right py-3 px-2">Valor</th>
-                    <th className="text-left py-3 px-2">Data</th>
-                    <th className="text-left py-3 px-2">Status</th>
-                    <th className="text-right py-3 px-2">Ações</th>
+                  <tr className="border-b bg-muted/40 hover:bg-muted/40">
+                    <th className="text-left py-3 px-6 font-medium text-sm">Descrição</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Tipo</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Categoria</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Cartão</th>
+                    <th className="text-right py-3 px-6 font-medium text-sm">Valor</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Data</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Status</th>
+                    <th className="text-right py-3 px-6 font-medium text-sm">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTransactions.map((transaction) => (
-                    <tr key={transaction.id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-2">{transaction.descricao}</td>
-                      <td className="py-3 px-2">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            transaction.tipo === 'receita'
-                              ? 'bg-success/10 text-success'
-                              : 'bg-danger/10 text-danger'
-                          }`}
-                        >
-                          {transaction.tipo === 'receita' ? 'Receita' : 'Despesa'}
-                        </span>
+                    <tr key={transaction.id} className="border-b hover:bg-muted/30 transition-colors">
+                      {/* Descrição editable */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'descricao' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'descricao' ? (
+                          <Input
+                            size="sm"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() =>
+                              handleInlineSave(
+                                transaction.id,
+                                'descricao',
+                                editingValue
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              handleCellKeyDown(e, transaction.id, 'descricao', editingValue)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-sm font-medium">{transaction.descricao}</span>
+                        )}
                       </td>
-                      <td className="py-3 px-2">
-                        {transaction.categoria?.nome || '-'}
+
+                      {/* Tipo editable */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'tipo' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'tipo' ? (
+                          <Select
+                            size="sm"
+                            value={editingValue}
+                            onValueChange={(v) => {
+                              setEditingValue(v);
+                              handleInlineSave(transaction.id, 'tipo', v);
+                            }}
+                          >
+                            <SelectTrigger size="sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="receita">Receita</SelectItem>
+                              <SelectItem value="despesa">Despesa</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              transaction.tipo === 'receita'
+                                ? 'bg-success/10 text-success'
+                                : 'bg-danger/10 text-danger'
+                            }`}
+                          >
+                            {transaction.tipo === 'receita' ? 'Receita' : 'Despesa'}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-right font-medium">
-                        {formatCurrency(Number(transaction.valor))}
+
+                      {/* Categoria editable */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'categoria_id' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'categoria_id' ? (
+                          <Select
+                            size="sm"
+                            value={editingValue}
+                            onValueChange={(v) => {
+                              setEditingValue(v);
+                              handleInlineSave(
+                                transaction.id,
+                                'categoria_id',
+                                v
+                              );
+                            }}
+                          >
+                            <SelectTrigger size="sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories
+                                .filter((c) => c.tipo === transaction.tipo)
+                                .map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.id}>
+                                    {cat.nome}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-sm">{transaction.categoria?.nome || '-'}</span>
+                        )}
                       </td>
-                      <td className="py-3 px-2">
-                        {formatDate(transaction.data_transacao)}
+
+                      {/* Cartão/origem editable */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'forma_pagamento' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'forma_pagamento' ? (
+                          <Input
+                            size="sm"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() =>
+                              handleInlineSave(
+                                transaction.id,
+                                'forma_pagamento',
+                                editingValue
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              handleCellKeyDown(
+                                e,
+                                transaction.id,
+                                'forma_pagamento',
+                                editingValue
+                              )
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-sm">{transaction.forma_pagamento || '-'}</span>
+                        )}
                       </td>
-                      <td className="py-3 px-2">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            transaction.status === 'pago'
-                              ? 'bg-success/10 text-success'
+
+                      {/* Valor editable */}
+                      <td
+                        className="py-3 px-6 text-right cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'valor' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'valor' ? (
+                          <Input
+                            size="sm"
+                            type="number"
+                            step="0.01"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() =>
+                              handleInlineSave(
+                                transaction.id,
+                                'valor',
+                                Number(editingValue)
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              handleCellKeyDown(e, transaction.id, 'valor', editingValue)
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-sm font-semibold">{formatCurrency(Number(transaction.valor))}</span>
+                        )}
+                      </td>
+
+                      {/* Data editable */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'data_transacao' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'data_transacao' ? (
+                          <Input
+                            size="sm"
+                            type="date"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            onBlur={() =>
+                              handleInlineSave(
+                                transaction.id,
+                                'data_transacao',
+                                editingValue
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              handleCellKeyDown(
+                                e,
+                                transaction.id,
+                                'data_transacao',
+                                editingValue
+                              )
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">{formatDate(transaction.data_transacao)}</span>
+                        )}
+                      </td>
+
+                      {/* Status editable */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'status' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'status' ? (
+                          <Select
+                            size="sm"
+                            value={editingValue}
+                            onValueChange={(v) => {
+                              setEditingValue(v);
+                              handleInlineSave(transaction.id, 'status', v);
+                            }}
+                          >
+                            <SelectTrigger size="sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pago">Pago</SelectItem>
+                              <SelectItem value="andamento">Em Andamento</SelectItem>
+                              <SelectItem value="vencido">Vencido</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              transaction.status === 'pago'
+                                ? 'bg-success/10 text-success'
+                                : transaction.status === 'vencido'
+                                ? 'bg-danger/10 text-danger'
+                                : 'bg-warning/10 text-warning'
+                            }`}
+                          >
+                            {transaction.status === 'pago'
+                              ? 'Pago'
                               : transaction.status === 'vencido'
-                              ? 'bg-danger/10 text-danger'
-                              : 'bg-warning/10 text-warning'
-                          }`}
-                        >
-                          {transaction.status === 'pago'
-                            ? 'Pago'
-                            : transaction.status === 'vencido'
-                            ? 'Vencido'
-                            : 'Em Andamento'}
-                        </span>
+                              ? 'Vencido'
+                              : 'Em Andamento'}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-2 text-right">
-                        <div className="flex justify-end gap-2">
+
+                      <td className="py-3 px-6 text-right">
+                        <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8"
                             onClick={() => handleEditTransaction(transaction)}
                           >
                             <Edit className="h-4 w-4" />
@@ -476,6 +803,7 @@ export default function TransactionsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8 hover:text-destructive"
                             onClick={() => handleDeleteTransaction(transaction.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -488,8 +816,8 @@ export default function TransactionsPage() {
               </table>
 
               {filteredTransactions.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma transação encontrada
+                <div className="text-center py-12 text-muted-foreground">
+                  <p className="text-sm">Nenhuma transação encontrada</p>
                 </div>
               )}
             </div>

@@ -43,6 +43,17 @@ export async function getTransactions(filters?: TransactionFilters) {
       if (filters?.categoria_id) {
         transactions = transactions.filter(t => t.categoria_id === filters.categoria_id);
       }
+      if (filters?.forma_pagamento) {
+        transactions = transactions.filter(t => t.forma_pagamento === filters.forma_pagamento);
+      }
+      if (filters?.mes) {
+        const [year, month] = filters.mes.split('-');
+        transactions = transactions.filter(t => {
+          const transDate = new Date(t.data_transacao);
+          return transDate.getFullYear() === parseInt(year) && 
+                 transDate.getMonth() === parseInt(month) - 1;
+        });
+      }
       if (filters?.data_inicio) {
         transactions = transactions.filter(t => t.data_transacao >= filters.data_inicio!);
       }
@@ -74,6 +85,15 @@ export async function getTransactions(filters?: TransactionFilters) {
     }
     if (filters?.categoria_id) {
       query = query.eq('categoria_id', filters.categoria_id);
+    }
+    if (filters?.forma_pagamento) {
+      query = query.eq('forma_pagamento', filters.forma_pagamento);
+    }
+    if (filters?.mes) {
+      const [year, month] = filters.mes.split('-');
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate(); // Último dia do mês
+      query = query.gte('data_transacao', `${year}-${month.padStart(2, '0')}-01`)
+                   .lte('data_transacao', `${year}-${month.padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`);
     }
     if (filters?.data_inicio) {
       query = query.gte('data_transacao', filters.data_inicio);

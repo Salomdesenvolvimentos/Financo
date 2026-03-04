@@ -211,6 +211,8 @@ export interface TransactionFilters {
   data_fim?: string;
   busca?: string;
   responsavel?: string;
+  forma_pagamento?: string;
+  mes?: string; // Formato: "YYYY-MM"
 }
 
 export interface DateRange {
@@ -255,4 +257,108 @@ export interface AppState {
   
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
+}
+
+// ============================================
+// Tipos para Gastos e Rendas Fixas
+// ============================================
+
+export interface FixedExpense {
+  id: string;
+  user_id: string;
+  descricao: string;
+  valor: number;
+  dia_vencimento: number; // 1-31
+  categoria_id: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+  // Dados relacionados (joins)
+  categoria?: Category;
+}
+
+export interface FixedIncome {
+  id: string;
+  user_id: string;
+  descricao: string;
+  valor: number;
+  dia_recebimento: number; // 1-31
+  tipo: 'salario' | 'adiantamento' | 'outro';
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FixedExpenseFormData {
+  descricao: string;
+  valor: number;
+  dia_vencimento: number;
+  categoria_id: string;
+  ativo: boolean;
+}
+
+export interface FixedIncomeFormData {
+  descricao: string;
+  valor: number;
+  dia_recebimento: number;
+  tipo: 'salario' | 'adiantamento' | 'outro';
+  ativo: boolean;
+}
+
+// ============================================
+// Tipos para Previsão Financeira
+// ============================================
+
+export interface MonthlyForecast {
+  mes: string; // "2025-02"
+  ano: number;
+  mes_nome: string;
+  
+  // Valores reais (transações já ocorridas)
+  receitas_realizadas: number;
+  despesas_realizadas: number;
+  saldo_real: number;
+  
+  // Valores previstos (gastos/rendas fixas)
+  receitas_previstas: number;
+  despesas_previstas: number;
+  
+  // Projeção final
+  saldo_previsto_final: number;
+  
+  // Metadados
+  dias_restantes: number;
+  dia_atual: number;
+  status: 'positivo' | 'alerta' | 'critico';
+  
+  // Detalhes para análise
+  detalhes_receitas: {
+    fixas: FixedIncome[];
+    variaveis: number;
+  };
+  detalhes_despesas: {
+    fixas: FixedExpense[];
+    variaveis: number;
+  };
+}
+
+export interface ForecastAlert {
+  tipo: 'vencimento_proximo' | 'saldo_insuficiente' | 'receita_pendente' | 'economia_baixa';
+  mensagem: string;
+  nivel: 'info' | 'alerta' | 'critico';
+  dias?: number;
+  valor?: number;
+  item_id?: string;
+  item_descricao?: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  tipo: 'receita_fixa' | 'despesa_fixa' | 'receita_realizada' | 'despesa_realizada';
+  descricao: string;
+  valor: number;
+  dia: number;
+  status: 'pendente' | 'realizado' | 'vencido';
+  categoria?: string;
+  cor?: string;
 }

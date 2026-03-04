@@ -122,7 +122,8 @@ export default function ImportPage() {
           data: t.data,
           descrição: t.descricao,
           valor: t.valor, // Manter como número, não converter para string!
-          tipo: t.tipo
+          tipo: t.tipo,
+          forma_pagamento: t.forma_pagamento || ''
         }));
       } else {
         // Processar CSV
@@ -141,6 +142,8 @@ export default function ImportPage() {
       }
 
       let imported = 0;
+      let receitaCount = 0;
+      let despesaCount = 0;
       for (const row of parsedData) {
         const date = row['data'] || row['date'] || row['data transação'] || '';
         const description = row['descrição'] || row['description'] || row['historic'] || row['histórico'] || '';
@@ -207,6 +210,7 @@ export default function ImportPage() {
           status: 'pago',
           parcelado: false,
           total_parcelas: 1,
+          forma_pagamento: row['forma_pagamento'] || undefined,
         });
 
         // Salvar regra de aprendizado
@@ -215,14 +219,18 @@ export default function ImportPage() {
         }
 
         imported++;
+        if (tipo === 'receita') receitaCount++;
+        if (tipo === 'despesa') despesaCount++;
       }
 
+      console.log('🔢 Resumo importação PDF:', { imported, receitaCount, despesaCount });
       toast({
         title: `${imported} transações importadas!`,
         description: 'O sistema aprendeu novos padrões de categorização',
       });
 
-      setTimeout(() => router.push('/dashboard/transactions'), 1000);
+      // navegar e pedir para a página de transações limpar filtros
+      setTimeout(() => router.push('/dashboard/transactions?reset=true'), 1000);
       setFile(null);
     } catch (error) {
       console.error('Erro ao processar arquivo:', error);
@@ -344,7 +352,7 @@ export default function ImportPage() {
             <CardHeader>
               <CardTitle>Upload de Extrato Bancário</CardTitle>
               <CardDescription>
-                Suporta PDF do Nubank, CSV e Excel • Sistema com aprendizado automático 🧠
+                Suporta PDF do Nubank e Santander, CSV e Excel • Sistema com aprendizado automático 🧠
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -378,7 +386,7 @@ export default function ImportPage() {
                         <p className="font-medium">{file.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {(file.size / 1024).toFixed(2)} KB
-                          {file.type === 'application/pdf' && ' • PDF do Nubank'}
+                          {file.type === 'application/pdf' && ' • PDF do Nubank/Santander'}
                         </p>
                       </div>
                     </div>

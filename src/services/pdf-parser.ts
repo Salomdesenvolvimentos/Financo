@@ -10,6 +10,8 @@ interface ParsedTransaction {
   descricao: string;
   valor: number;
   tipo: 'receita' | 'despesa';
+  // opcionalmente preenchido pelo parser para indicar a origem/cartão
+  forma_pagamento?: string;
 }
 
 // Declaração de tipo para o PDF.js carregado via CDN
@@ -60,9 +62,22 @@ export async function parsePDF(file: File): Promise<ParsedTransaction[]> {
     console.log('📄 Total de caracteres:', text.length);
     
     // Identificar banco e aplicar parser específico
-    if (text.includes('Nu Pagamentos') || text.includes('Nubank') || text.includes('nu')) {
+    // converter tudo para lowercase para comparações
+    const lower = text.toLowerCase();
+    const snippet = lower.slice(0, 800); // primeiras linhas do PDF
+
+    // detectar Nubank primeiro, padrão mais restrito
+    if (lower.includes('nu pagamentos') || lower.includes('nubank') || lower.includes('movimentaç')) {
       const transactions = parseNubankPDF(text);
       console.log('✅ Transações extraídas do Nubank:', transactions.length);
+      console.log('📊 Primeiras 5 transações:', transactions.slice(0, 5));
+      return transactions;
+    }
+
+    // depois Santander: verificar presença de 'internet banking' ou header típico
+    if ((snippet.includes('internet banking') && snippet.includes('santander')) || snippet.includes('extrato de conta corrente')) {
+      const transactions = parseSantanderPDF(text);
+      console.log('✅ Transações extraídas do Santander:', transactions.length);
       console.log('📊 Primeiras 5 transações:', transactions.slice(0, 5));
       return transactions;
     }
@@ -248,7 +263,8 @@ function parseNubankPDF(text: string): ParsedTransaction[] {
             data: currentDate,
             descricao: description,
             valor: amount,
-            tipo: currentType
+            tipo: currentType,
+            forma_pagamento: 'Nubank',
           });
           
           continue; // Pular busca nas próximas linhas
@@ -300,7 +316,8 @@ function parseNubankPDF(text: string): ParsedTransaction[] {
               data: currentDate,
               descricao: description,
               valor: amount,
-              tipo: currentType
+              tipo: currentType,
+              forma_pagamento: 'Nubank',
             });
             
             foundValue = true;
@@ -466,7 +483,8 @@ function parseNubankAlternative(text: string): ParsedTransaction[] {
           data: currentDate,
           descricao: cleanDesc,
           valor: amount,
-          tipo: currentType
+          tipo: currentType,
+          forma_pagamento: 'Nubank',
         });
       } else {
         console.log('⚠️ Valor não encontrado para:', description);
@@ -481,6 +499,106 @@ function parseNubankAlternative(text: string): ParsedTransaction[] {
 /**
  * Parser genérico para outros bancos
  */
+
+/**
+ * Parser específico para extratos do Santander (formato comum de conta corrente)
+ */
+function parseSantanderPDF(text: string): ParsedTransaction[] {
+  const transactions: ParsedTransaction[] = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+  console.log('🪙 Iniciando parser Santander, linhas:', lines.length);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // o extrato geralmente começa com data no início da linha
+    const dateMatch = line.match(/(\d{2}\/\d{2}\/\d{4})/);
+    if (!dateMatch) continue;
+
+    let currentDate = '';
+    try {
+      const [d, m, y] = dateMatch[1].split('/');
+      currentDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    } catch (e) {
+      continue;
+    }
+
+    // O Santander frequentemente coloca a descrição em uma linha
+    // e os valores (débito/crédito/saldo) na linha seguinte.
+    // Montamos um bloco com a linha atual + até 3 próximas linhas
+    // e procuramos por valores nesse bloco.
+    let block = line;
+    let consumedLines = 0;
+    for (let k = 1; k <= 3 && i + k < lines.length; k++) {
+      // pare de anexar se a próxima linha começa com outra data (nova transação)
+      if (/^\d{2}\/\d{2}\/\d{4}/.test(lines[i + k])) break;
+      block += ' ' + lines[i + k];
+      consumedLines = k;
+    }
+
+    // coletar todos os valores monetários no bloco
+    const moneyMatches = block.match(/-?[\d\.]+,\d{2}/g) || [];
+    if (moneyMatches.length === 0) continue; // nada pra extrair
+
+    console.log(`     💰 Linha ${i}: encontrados ${moneyMatches.length} valores =>`, moneyMatches);
+
+    // por convenção, o último valor é o saldo; o anterior é o valor da transação
+    let amountStr: string;
+    if (moneyMatches.length === 1) {
+      amountStr = moneyMatches[0];
+    } else {
+      amountStr = moneyMatches[moneyMatches.length - 2];
+    }
+
+    console.log(`     🎯 Valor selecionado (índice ${moneyMatches.length - 2}): "${amountStr}"`);
+
+    // determinar tipo baseado no sinal
+    const isNegative = amountStr.includes('-');
+    const tipo: 'receita' | 'despesa' = isNegative ? 'despesa' : 'receita';
+
+    let amount = parseFloat(amountStr.replace(/\./g, '').replace(',', '.'));
+    // garantir valor positivo; tipo já indica se é despesa ou receita
+    amount = Math.abs(amount);
+    console.log(`     ✓ Tipo detectado: ${tipo}, Valor numérico: ${amount}`);
+    if (isNaN(amount) || amount === 0) continue;
+
+    // construir descrição: remover data + valores + possíveis doc/situação do bloco
+    let description = block
+      .replace(dateMatch[1], '')
+      // remover todos os valores encontrados no bloco (inclui saldo)
+      .replace(new RegExp(moneyMatches.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g'), '')
+      // tirar números isolados (docs, situação, agência/conta)
+      .replace(/\b\d+\b/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    if (description.length > 100) description = description.substring(0, 100);
+
+    console.log('   📄 Linha', i, '->', {
+      data: currentDate,
+      descricao: description,
+      valor: amount,
+      tipo,
+    });
+
+    transactions.push({
+      data: currentDate,
+      descricao: description,
+      valor: amount,
+      tipo,
+      forma_pagamento: 'Santander',
+    });
+
+    // se consumimos linhas extras do bloco, avançar o índice para pular as linhas processadas
+    if (typeof consumedLines === 'number' && consumedLines > 0) {
+      i += consumedLines;
+    }
+  }
+
+  console.log('🎯 Total extratos Santander:', transactions.length);
+  return transactions;
+}
+
 function parseGenericPDF(text: string): ParsedTransaction[] {
   const transactions: ParsedTransaction[] = [];
   

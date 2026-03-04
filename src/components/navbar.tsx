@@ -5,15 +5,18 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 // If the project contains the logo under `src/`, import it so Next can serve it.
-import logo from '@/Logo_financo.png';
+// importar ambas as variantes da logo (nomeadas conforme solicitação)
+import logoBranco from '@/Financo_branco.png';
+import logoPreto from '@/Financo_preto.png';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 import {
   DollarSign,
   LayoutDashboard,
@@ -25,6 +28,7 @@ import {
   X,
   Sun,
   Moon,
+  CreditCard,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -34,8 +38,20 @@ interface NavbarProps {
 export function Navbar({ userName }: NavbarProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Carregar foto de perfil do localStorage
+  useEffect(() => {
+    if (user?.id) {
+      const savedImage = localStorage.getItem(`profile-image-${user.id}`);
+      if (savedImage) {
+        setProfileImage(savedImage);
+      }
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -55,6 +71,8 @@ export function Navbar({ userName }: NavbarProps) {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/transactions', label: 'Transações', icon: Receipt },
+    { href: '/dashboard/fixed-expenses', label: 'Gastos Fixos', icon: CreditCard },
+    { href: '/dashboard/fixed-income', label: 'Rendas Fixas', icon: DollarSign },
     { href: '/dashboard/import', label: 'Importar', icon: Upload },
     { href: '/dashboard/settings', label: 'Configurações', icon: Settings },
   ];
@@ -64,17 +82,14 @@ export function Navbar({ userName }: NavbarProps) {
       <div className="container flex h-16 items-center px-4">
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center space-x-2 mr-8">
-          {/* Use logo_financo from public/ if available, else fallback to icon */}
-          <div className="h-8 w-8 rounded-full overflow-hidden bg-primary flex items-center justify-center">
-            <Image
-              src={logo}
-              alt="Financo"
-              width={36}
-              height={36}
-              className="object-cover"
-            />
-          </div>
-          <span className="font-bold text-xl hidden sm:inline">Financo</span>
+          {/* mostrar a imagem atualizada segundo o modo (claro/escuro) */}
+          <Image
+            src={darkMode ? logoBranco : logoPreto}
+            alt="Financo"
+            width={108}
+            height={108}
+            className="object-contain"
+          />
         </Link>
 
         {/* Desktop Navigation */}
@@ -113,8 +128,18 @@ export function Navbar({ userName }: NavbarProps) {
 
           {/* User Info */}
           <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-md bg-muted">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold">
-              {userName?.charAt(0).toUpperCase() || 'U'}
+            <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-border">
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt="Foto de perfil"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-semibold">
+                  {userName?.charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
             </div>
             <span className="text-sm font-medium">{userName || 'Usuário'}</span>
           </div>

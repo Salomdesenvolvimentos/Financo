@@ -2,7 +2,7 @@
 
 ## ✅ Funcionalidades Implementadas
 
-### 1. **Processamento de PDF do Nubank**
+### 1. **Processamento de PDF do Nubank e Santander**
 - ✅ Extração automática de transações de extratos PDF
 - ✅ Detecção inteligente de datas, descrições e valores
 - ✅ Suporte para múltiplos formatos de extrato do Nubank
@@ -23,11 +23,11 @@
 
 ## 🚀 Como Usar
 
-### **Importar PDF do Nubank:**
+### **Importar PDF do Nubank ou Santander:**
 
 1. Acesse **Dashboard** → **Importar**
 2. Clique na aba **"📄 Upload (PDF/CSV)"**
-3. Selecione seu extrato PDF do Nubank
+3. Selecione seu extrato PDF do Nubank ou Santander
 4. Clique em **"Processar"**
 5. As transações serão importadas automaticamente com categorias sugeridas
 

@@ -15,13 +15,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { signIn } from '@/services/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, DollarSign } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import Image from 'next/image';
+// logos
+import logoBranco from '@/Financo_branco.png';
+import logoPreto from '@/Financo_preto.png';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [isDark, setIsDark] = useState(false);
   
   // Modo local: preencher com dados de teste
   const isLocalMode = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost:54321');
@@ -36,6 +41,11 @@ export default function LoginPage() {
       router.push('/dashboard');
     }
   }, [user, authLoading, router]);
+
+  // verificar tema atual para escolher logo
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,11 +83,14 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center">
-              <DollarSign className="h-8 w-8 text-primary-foreground" />
-            </div>
+            <Image
+              src={logoPreto}
+              alt="Financo"
+              width={256}
+              height={256}
+              className="object-contain"
+            />
           </div>
-          <CardTitle className="text-3xl font-bold">Finaco</CardTitle>
           <CardDescription>
             Sistema inteligente de controle financeiro
           </CardDescription>

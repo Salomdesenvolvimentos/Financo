@@ -21,13 +21,15 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getCategories, createCategory, deleteCategory } from '@/services/categories.local';
 import type { Category, CategoryFormData } from '@/types';
-import { User, Settings, Tag, Trash2, Plus, Loader2 } from 'lucide-react';
+import { User, Settings, Tag, Trash2, Plus, Loader2, Camera } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Form para nova categoria
   const [newCategory, setNewCategory] = useState<CategoryFormData>({
@@ -35,6 +37,89 @@ export default function SettingsPage() {
     tipo: 'despesa',
     cor: '#3B82F6',
   });
+
+  // Carregar foto de perfil do localStorage
+  useEffect(() => {
+    if (user?.id) {
+      const savedImage = localStorage.getItem(`profile-image-${user.id}`);
+      if (savedImage) {
+        setProfileImage(savedImage);
+      }
+    }
+  }, [user]);
+
+  // Função para fazer upload da foto
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validar tipo e tamanho
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione uma imagem válida.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      toast({
+        title: 'Erro',
+        description: 'A imagem deve ter no máximo 5MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      // Converter para base64
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        setProfileImage(base64);
+        
+        // Salvar no localStorage
+        localStorage.setItem(`profile-image-${user.id}`, base64);
+        
+        // Atualizar metadata do usuário (se necessário)
+        if (user.user_metadata) {
+          user.user_metadata.profile_image = base64;
+        }
+        
+        toast({
+          title: 'Sucesso!',
+          description: 'Foto de perfil atualizada com sucesso.',
+          variant: 'success',
+        });
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Falha ao fazer upload da imagem.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Função para remover foto
+  const handleRemoveImage = () => {
+    if (!user) return;
+    
+    setProfileImage(null);
+    localStorage.removeItem(`profile-image-${user.id}`);
+    
+    toast({
+      title: 'Sucesso!',
+      description: 'Foto de perfil removida.',
+      variant: 'success',
+    });
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -141,7 +226,62 @@ export default function SettingsPage() {
                 Suas informações pessoais e de acesso
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              {/* Foto de Perfil */}
+              <div className="space-y-4">
+                <Label>Foto de Perfil</Label>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    {profileImage ? (
+                      <img
+                        src={profileImage}
+                        alt="Foto de perfil"
+                        className="h-20 w-20 rounded-full object-cover border-2 border-border"
+                      />
+                    ) : (
+                      <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center border-2 border-border">
+                        <User className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      id="profile-image"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="profile-image"
+                      className="absolute bottom-0 right-0 h-8 w-8 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
+                    >
+                      {uploadingImage ? (
+                        <Loader2 className="h-4 w-4 text-primary-foreground animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4 text-primary-foreground" />
+                      )}
+                    </label>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Clique na câmera para alterar sua foto de perfil
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Formatos: JPG, PNG. Tamanho máximo: 5MB
+                    </p>
+                    {profileImage && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveImage}
+                        className="mt-2"
+                      >
+                        Remover foto
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Nome</Label>
                 <Input
