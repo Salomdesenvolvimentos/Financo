@@ -8,7 +8,8 @@
     "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "vercel-build": "npm install --legacy-peer-deps && npm run build"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
