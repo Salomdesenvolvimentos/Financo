@@ -34,37 +34,40 @@ export function useAuth() {
       setUser(localUser);
       setLoading(false);
     } else {
-      // Modo Supabase: usa onAuthStateChange que dispara imediatamente com a sessão atual
+      // Modo Supabase: desbloqueia a tela imediatamente ao ter a sessão,
+      // depois busca dados completos do perfil em background.
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        try {
-          if (session?.user) {
-            const { data: userData, error } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
+        if (!session?.user) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
 
-            if (userData && !error) {
-              setUser(userData as User);
-            } else {
-              // Fallback: usar dados básicos da sessão se tabela users falhar
-              console.error('Erro ao buscar perfil:', error);
-              setUser({
-                id: session.user.id,
-                email: session.user.email || '',
-                nome: session.user.user_metadata?.nome || session.user.email || 'Usuário',
-              } as User);
-            }
-          } else {
-            setUser(null);
+        // Libera o loading com dados básicos da sessão imediatamente
+        const basicUser: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          nome: session.user.user_metadata?.nome || session.user.email || 'Usuário',
+        } as User;
+        setUser(basicUser);
+        setLoading(false);
+
+        // Enriquece com dados completos da tabela users em background
+        try {
+          const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (userData && !error) {
+            setUser(userData as User);
           }
         } catch (err) {
-          console.error('Erro inesperado no auth:', err);
-          setUser(null);
-        } finally {
-          setLoading(false);
+          console.error('Erro ao buscar perfil completo:', err);
+          // basicUser já foi definido, não bloqueia nada
         }
       });
 
