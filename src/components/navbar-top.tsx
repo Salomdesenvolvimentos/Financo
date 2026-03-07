@@ -144,7 +144,7 @@ export function NavbarTop({
               {/* Logo */}
               <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="Voltar ao Dashboard">
                 <Image
-                  src={darkMode ? logoBranco : logoPreto}
+                  src={darkMode ? logoPreto : logoBranco}
                   alt="Financo"
                   width={130}
                   height={40}
