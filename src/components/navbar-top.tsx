@@ -29,6 +29,7 @@ import {
   CreditCard,
   User,
   ChevronDown,
+  TrendingUp,
 } from 'lucide-react';
 
 interface NavbarTopProps {
@@ -102,6 +103,11 @@ export function NavbarTop({
       icon: DollarSign,
       label: "Rendas Fixas",
       href: "/dashboard/fixed-income",
+    },
+    {
+      icon: TrendingUp,
+      label: "Investimentos",
+      href: "/dashboard/investments",
     },
     {
       icon: Upload,
