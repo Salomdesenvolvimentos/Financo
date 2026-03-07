@@ -20,6 +20,25 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+export interface MonthData {
+  month: number;
+  year: number;
+  summary?: {
+    total_receitas: number;
+    total_despesas: number;
+    saldo: number;
+    economia: number;
+  };
+  topCategories?: Array<{ nome: string; total: number }>;
+  transactions?: Array<{
+    descricao: string;
+    valor: number;
+    categoria: string;
+    tipo: string;
+    data: string;
+  }>;
+}
+
 export interface FinancialContext {
   summary?: {
     total_receitas: number;
@@ -35,6 +54,7 @@ export interface FinancialContext {
     tipo: string;
     data: string;
   }>;
+  historicalMonths?: MonthData[];
   month: number;
   year: number;
 }
@@ -56,47 +76,78 @@ function fmt(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function buildSystemPrompt(context: FinancialContext): string {
-  const monthNames = [
-    'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
-  ];
-  const monthName = monthNames[context.month - 1];
+const MONTH_NAMES = [
+  'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
+];
 
-  let prompt = `Você é Financo AI, um assistente financeiro pessoal inteligente e amigável.
-Responda sempre em português do Brasil, de forma clara, direta e com emojis quando apropriado.
-Seja conciso (máximo 5 parágrafos). Não repita dados que o usuário já sabe.
-Use formatação Markdown simples (negrito, listas) para facilitar a leitura.
+function buildMonthSection(m: MonthData): string {
+  const label = `${MONTH_NAMES[m.month - 1]} ${m.year}`;
+  let s = `\n### 📅 ${label}\n`;
 
-📅 Contexto atual: ${monthName} de ${context.year}\n`;
-
-  if (context.summary) {
-    const s = context.summary;
-    const pct = s.total_receitas > 0
-      ? ((s.total_despesas / s.total_receitas) * 100).toFixed(1)
+  if (m.summary) {
+    const pct = m.summary.total_receitas > 0
+      ? ((m.summary.total_despesas / m.summary.total_receitas) * 100).toFixed(1)
       : '0';
-
-    prompt += `
-💰 Resumo financeiro do mês:
-- Receitas:  ${fmt(s.total_receitas)}
-- Despesas:  ${fmt(s.total_despesas)} (${pct}% das receitas)
-- Saldo:     ${fmt(s.saldo)}
-- Economia:  ${fmt(s.economia)}\n`;
+    s += `- Receitas: ${fmt(m.summary.total_receitas)} | Despesas: ${fmt(m.summary.total_despesas)} (${pct}%) | Saldo: ${fmt(m.summary.saldo)}\n`;
+  } else {
+    s += `- (sem dados registrados)\n`;
   }
 
-  if (context.topCategories?.length) {
-    prompt += `\n📊 Top categorias de despesa:\n`;
-    context.topCategories.slice(0, 5).forEach(c => {
-      prompt += `- ${c.nome}: ${fmt(c.total)}\n`;
+  if (m.topCategories?.length) {
+    s += `**Top gastos por categoria:**\n`;
+    m.topCategories.forEach(c => {
+      s += `  - ${c.nome}: ${fmt(c.total)}\n`;
     });
   }
 
-  if (context.recentTransactions?.length) {
-    prompt += `\n🧾 Últimas transações:\n`;
-    context.recentTransactions.slice(0, 8).forEach(t => {
+  if (m.transactions?.length) {
+    s += `**Transações (${m.transactions.length} registros):**\n`;
+    m.transactions.slice(0, 15).forEach(t => {
       const sinal = t.tipo === 'receita' ? '+' : '-';
-      prompt += `- ${t.data} | ${t.descricao} | ${sinal}${fmt(Math.abs(t.valor))} | ${t.categoria}\n`;
+      s += `  - ${t.data} | ${t.descricao} | ${sinal}${fmt(Math.abs(t.valor))} | ${t.categoria}\n`;
     });
+  }
+
+  return s;
+}
+
+function buildSystemPrompt(context: FinancialContext): string {
+  const monthName = MONTH_NAMES[context.month - 1];
+
+  let prompt = `Você é Financo AI, assistente financeiro pessoal do usuário.
+Responda SEMPRE em português do Brasil, de forma direta e objetiva.
+Use os dados reais abaixo para responder. Se o usuário perguntar sobre um mês específico, USE os dados daquele mês.
+Seja conciso (máximo 5 parágrafos). Use Markdown simples (negrito, listas) para facilitar a leitura.
+NUNCA diga que não tem acesso aos dados — você tem todos os dados financeiros listados abaixo.
+
+📅 Mês de referência: ${monthName} de ${context.year}\n`;
+
+  if (context.historicalMonths?.length) {
+    prompt += `\n## Dados Financeiros do Usuário (últimos meses)\n`;
+    context.historicalMonths.forEach(m => {
+      prompt += buildMonthSection(m);
+    });
+  } else {
+    // fallback para contexto antigo (compatibilidade)
+    if (context.summary) {
+      const s = context.summary;
+      const pct = s.total_receitas > 0
+        ? ((s.total_despesas / s.total_receitas) * 100).toFixed(1)
+        : '0';
+      prompt += `\n💰 Resumo de ${monthName}:\n- Receitas: ${fmt(s.total_receitas)} | Despesas: ${fmt(s.total_despesas)} (${pct}%) | Saldo: ${fmt(s.saldo)}\n`;
+    }
+    if (context.topCategories?.length) {
+      prompt += `\n📊 Top categorias:\n`;
+      context.topCategories.forEach(c => { prompt += `- ${c.nome}: ${fmt(c.total)}\n`; });
+    }
+    if (context.recentTransactions?.length) {
+      prompt += `\n🧾 Transações recentes:\n`;
+      context.recentTransactions.slice(0, 10).forEach(t => {
+        const sinal = t.tipo === 'receita' ? '+' : '-';
+        prompt += `- ${t.data} | ${t.descricao} | ${sinal}${fmt(Math.abs(t.valor))} | ${t.categoria}\n`;
+      });
+    }
   }
 
   return prompt;
@@ -126,17 +177,20 @@ export class AIChatBotService {
     }
   }
 
-  /** Busca contexto financeiro real do usuário */
-  async getFinancialContext(userId: string, year: number, month: number): Promise<FinancialContext> {
+  /** Busca dados financeiros de um mês específico */
+  private async fetchMonthData(userId: string, year: number, month: number): Promise<MonthData> {
     try {
       const monthDate = new Date(year, month - 1);
       const mesStr = `${year}-${String(month).padStart(2, '0')}`;
 
-      const [summaryRaw, transactionsRaw, categoriesRaw] = await Promise.all([
+      const [summaryRaw, transactionsResult, categoriesRaw] = await Promise.all([
         getFinancialSummary(userId, monthDate),
         getTransactions({ mes: mesStr }),
         getCategoryExpenses(userId, monthDate, 'despesa'),
       ]);
+
+      // getTransactions retorna { data: [], error: null }
+      const txList: Transaction[] = (transactionsResult as any)?.data ?? [];
 
       const summary = summaryRaw
         ? {
@@ -149,24 +203,47 @@ export class AIChatBotService {
 
       const topCategories = (categoriesRaw as CategorySummary[])
         .sort((a, b) => b.total - a.total)
-        .slice(0, 5)
-        .map(c => ({ nome: c.categoria_nome, total: c.total, tipo: 'despesa' as const }));
+        .slice(0, 8)
+        .map(c => ({ nome: c.categoria_nome, total: c.total }));
 
-      const recentTransactions = ((transactionsRaw as unknown) as Transaction[])
-        .slice(0, 10)
-        .map(t => ({
-          descricao: t.descricao,
-          valor: Number(t.valor),
-          categoria: t.categoria?.nome ?? 'Sem categoria',
-          tipo: t.tipo,
-          data: t.data_transacao,
-        }));
+      const transactions = txList.map(t => ({
+        descricao: t.descricao,
+        valor: Number(t.valor),
+        categoria: (t as any).categoria?.nome ?? 'Sem categoria',
+        tipo: t.tipo,
+        data: t.data_transacao,
+      }));
 
-      return { summary, topCategories, recentTransactions, month, year };
+      return { month, year, summary, topCategories, transactions };
     } catch (err) {
-      console.error('[AIChatBotService] getFinancialContext:', err);
+      console.error(`[AIChatBotService] fetchMonthData ${year}-${month}:`, err);
       return { month, year };
     }
+  }
+
+  /** Busca contexto financeiro dos últimos 3 meses */
+  async getFinancialContext(userId: string, year: number, month: number): Promise<FinancialContext> {
+    // Gera lista dos últimos 3 meses (mais recente primeiro)
+    const monthsToFetch: Array<{ year: number; month: number }> = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(year, month - 1 - i, 1);
+      monthsToFetch.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+    }
+
+    const historicalMonths = await Promise.all(
+      monthsToFetch.map(({ year: y, month: m }) => this.fetchMonthData(userId, y, m))
+    );
+
+    // Dados do mês mais recente para compatibilidade com insights
+    const current = historicalMonths[0];
+    return {
+      month,
+      year,
+      summary: current.summary,
+      topCategories: current.topCategories?.map(c => ({ ...c, tipo: 'despesa' as const })),
+      recentTransactions: current.transactions?.slice(0, 10),
+      historicalMonths,
+    };
   }
 
   /** Insights rápidos (baseados em regras, sem custo de API) */
