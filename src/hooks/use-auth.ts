@@ -34,44 +34,77 @@ export function useAuth() {
       setUser(localUser);
       setLoading(false);
     } else {
-      // Modo Supabase: desbloqueia a tela imediatamente ao ter a sessão,
-      // depois busca dados completos do perfil em background.
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (!session?.user) {
-          setUser(null);
-          setLoading(false);
-          return;
-        }
+      let mounted = true;
 
-        // Libera o loading com dados básicos da sessão imediatamente
-        const basicUser: User = {
-          id: session.user.id,
-          email: session.user.email || '',
-          nome: session.user.user_metadata?.nome || session.user.email || 'Usuário',
-        } as User;
-        setUser(basicUser);
-        setLoading(false);
+      // Timeout de segurança: se nada responder em 4s, desbloqueia a tela
+      const safetyTimeout = setTimeout(() => {
+        if (mounted) setLoading(false);
+      }, 4000);
 
-        // Enriquece com dados completos da tabela users em background
+      const initAuth = async () => {
         try {
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+          // getSession() lê do localStorage — instantâneo, sem depender de rede
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!mounted) return;
 
-          if (userData && !error) {
-            setUser(userData as User);
+          if (session?.user) {
+            // Libera a tela imediatamente com dados básicos
+            const basicUser: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              nome: session.user.user_metadata?.nome || session.user.email || 'Usuário',
+            } as User;
+            setUser(basicUser);
+            setLoading(false);
+            clearTimeout(safetyTimeout);
+
+            // Busca perfil completo em background sem bloquear
+            const { data: userData, error } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (mounted && userData && !error) {
+              setUser(userData as User);
+            }
+          } else {
+            setUser(null);
+            setLoading(false);
+            clearTimeout(safetyTimeout);
           }
         } catch (err) {
-          console.error('Erro ao buscar perfil completo:', err);
-          // basicUser já foi definido, não bloqueia nada
+          console.error('Erro no initAuth:', err);
+          if (mounted) {
+            setLoading(false);
+            clearTimeout(safetyTimeout);
+          }
         }
+      };
+
+      initAuth();
+
+      // Mantém listener para sign-in/sign-out após o carregamento inicial
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!mounted) return;
+        if (!session?.user) {
+          setUser(null);
+        } else {
+          setUser((prev) => prev ?? {
+            id: session.user!.id,
+            email: session.user!.email || '',
+            nome: session.user!.user_metadata?.nome || session.user!.email || 'Usuário',
+          } as User);
+        }
+        setLoading(false);
+        clearTimeout(safetyTimeout);
       });
 
-      return () => subscription.unsubscribe();
+      return () => {
+        mounted = false;
+        clearTimeout(safetyTimeout);
+        subscription.unsubscribe();
+      };
     }
   }, []);
 
