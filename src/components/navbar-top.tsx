@@ -126,7 +126,7 @@ export function NavbarTop({
       {/* Header */}
       <header className="glass border-b border-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-14">
+          <div className="flex items-center h-14 relative">
             {/* Left Section */}
             <div className="flex items-center gap-3">
               {/* Menu Toggle */}
@@ -151,35 +151,33 @@ export function NavbarTop({
                   className="object-contain"
                 />
               </Link>
-
-              {/* Desktop Navigation */}
-              {!isCollapsible && (
-                <nav className="hidden md:flex items-center gap-0.5 ml-2" aria-label="Menu principal">
-                  {navigationItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
-                          isActive
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                        }`}
-                      >
-                        <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-primary' : ''}`} />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </nav>
-              )}
             </div>
 
+            {/* Center Navigation - sempre visível no desktop */}
+            <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-0.5" aria-label="Menu principal">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                      isActive
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                    }`}
+                  >
+                    <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-primary' : ''}`} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
             {/* Right Section */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               {/* Theme Toggle */}
               <button
                 aria-label={darkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
@@ -226,29 +224,6 @@ export function NavbarTop({
                     <div className="p-3 border-b border-border">
                       <p className="text-sm font-semibold truncate">{userName || 'Usuário'}</p>
                       <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                    </div>
-                    
-                    {/* Navigation Items (mobile/dropdown) */}
-                    <div className="py-1 border-b border-border">
-                      {navigationItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                        return (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            role="menuitem"
-                            onClick={() => setUserMenuOpen(false)}
-                            aria-current={isActive ? 'page' : undefined}
-                            className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
-                              isActive ? 'text-primary font-medium bg-accent' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                            }`}
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
                     </div>
                     
                     {/* Theme and Logout */}

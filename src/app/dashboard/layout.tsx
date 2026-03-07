@@ -126,7 +126,7 @@ export default function DashboardLayoutNew({
       <button
         onClick={() => setNavbarHidden(!navbarHidden)}
         aria-label={navbarHidden ? 'Mostrar menu' : 'Ocultar menu'}
-        className={`fixed left-1/2 -translate-x-1/2 z-50 flex items-center justify-center gap-0.5 h-5 w-14 bg-muted hover:bg-accent border border-t-0 border-border rounded-b-lg shadow-sm transition-all duration-300 ${
+        className={`fixed left-1/2 -translate-x-1/2 z-[200] flex items-center justify-center gap-0.5 h-5 w-14 bg-muted hover:bg-accent border border-t-0 border-border rounded-b-lg shadow-sm transition-all duration-300 ${
           navbarHidden ? 'top-0' : 'top-14'
         }`}
       >
