@@ -425,7 +425,7 @@ export default function FixedIncomePage() {
                 <DollarSign className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-muted-foreground">Nenhuma renda fixa cadastrada</p>
                 <p className="text-sm text-muted-foreground">
-                  Clique em "Nova Renda" para começar
+                  Clique em &quot;Nova Renda&quot; para começar
                 </p>
               </div>
             </CardContent>

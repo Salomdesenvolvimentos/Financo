@@ -1,12 +1,13 @@
 // ============================================
 // Página: Configurações
-// Página de configurações do sistema
+// Página unificada de configurações do sistema
 // ============================================
 
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useMenuSettings, MenuPosition, MenuBehavior } from '@/hooks/use-menu-settings';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -21,15 +22,29 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getCategories, createCategory, deleteCategory } from '@/services/categories.local';
 import type { Category, CategoryFormData } from '@/types';
-import { User, Settings, Tag, Trash2, Plus, Loader2, Camera } from 'lucide-react';
+import { 
+  User, 
+  Settings as SettingsIcon, 
+  Tag, 
+  Trash2, 
+  Plus, 
+  Loader2, 
+  Camera,
+  Layout,
+  Menu as MenuIcon,
+  Sun,
+  Moon
+} from 'lucide-react';
 
-export default function SettingsPage() {
+export default function SettingsPageNew() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { settings: menuSettings, updatePosition, updateBehavior } = useMenuSettings();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   // Form para nova categoria
   const [newCategory, setNewCategory] = useState<CategoryFormData>({
@@ -38,420 +53,376 @@ export default function SettingsPage() {
     cor: '#3B82F6',
   });
 
-  // Carregar foto de perfil do localStorage
+  // Carregar dados
   useEffect(() => {
     if (user?.id) {
       const savedImage = localStorage.getItem(`profile-image-${user.id}`);
       if (savedImage) {
         setProfileImage(savedImage);
       }
+
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        setDarkMode(true);
+      }
     }
   }, [user]);
 
-  // Função para fazer upload da foto
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user) return;
-
-    // Validar tipo e tamanho
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Erro',
-        description: 'Por favor, selecione uma imagem válida.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) { // 5MB
-      toast({
-        title: 'Erro',
-        description: 'A imagem deve ter no máximo 5MB.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setUploadingImage(true);
-
-    try {
-      // Converter para base64
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const base64 = e.target?.result as string;
-        setProfileImage(base64);
-        
-        // Salvar no localStorage
-        localStorage.setItem(`profile-image-${user.id}`, base64);
-        
-        // Atualizar metadata do usuário (se necessário)
-        if (user.user_metadata) {
-          user.user_metadata.profile_image = base64;
-        }
-        
-        toast({
-          title: 'Sucesso!',
-          description: 'Foto de perfil atualizada com sucesso.',
-          variant: 'success',
-        });
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao fazer upload da imagem.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  // Função para remover foto
-  const handleRemoveImage = () => {
-    if (!user) return;
-    
-    setProfileImage(null);
-    localStorage.removeItem(`profile-image-${user.id}`);
-    
-    toast({
-      title: 'Sucesso!',
-      description: 'Foto de perfil removida.',
-      variant: 'success',
-    });
-  };
-
+  // Carregar categorias
   useEffect(() => {
-    if (!user) return;
-
-    async function loadCategories() {
-      const { data } = await getCategories(user.id);
-      if (data) setCategories(data);
-    }
+    const loadCategories = async () => {
+      try {
+        const result = await getCategories(user?.id || '');
+        if (result.data) {
+          setCategories(result.data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar categorias:', error);
+      }
+    };
 
     loadCategories();
   }, [user]);
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    setUploadingImage(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      localStorage.setItem(`profile-image-${user.id}`, result);
+      setProfileImage(result);
+      setUploadingImage(false);
+      
+      toast({
+        title: "Foto atualizada",
+        description: "Sua foto de perfil foi atualizada com sucesso.",
+      });
+    };
+
+    reader.onerror = () => {
+      setUploadingImage(false);
+      toast({
+        title: "Erro ao fazer upload",
+        description: "Não foi possível processar a imagem.",
+        variant: "destructive",
+      });
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   const handleCreateCategory = async () => {
-    if (!user || !newCategory.nome) return;
+    if (!newCategory.nome.trim() || !user?.id) return;
 
     setLoading(true);
-    const categoryToCreate = { ...newCategory, user_id: user.id };
-    const { error } = await createCategory(categoryToCreate as any);
-
-    if (error) {
-      toast({
-        title: 'Erro ao criar categoria',
-        description: error,
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Categoria criada!',
-        variant: 'success',
-      });
-
+    try {
+      await createCategory(newCategory);
+      setNewCategory({ nome: '', tipo: 'despesa', cor: '#3B82F6' });
+      
       // Recarregar categorias
-      const { data } = await getCategories(user.id);
-      if (data) setCategories(data);
+      const result = await getCategories(user.id);
+      if (result.data) {
+        setCategories(result.data);
+      }
 
-      // Limpar form
-      setNewCategory({
-        nome: '',
-        tipo: 'despesa',
-        cor: '#3B82F6',
+      toast({
+        title: "Categoria criada",
+        description: `Categoria "${newCategory.nome}" criada com sucesso.`,
       });
+    } catch (error) {
+      toast({
+        title: "Erro ao criar categoria",
+        description: "Não foi possível criar a categoria.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  const handleDeleteCategory = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta categoria?')) return;
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!user?.id) return;
 
-    setLoading(true);
-    const { error } = await deleteCategory(id);
-
-    if (error) {
-      toast({
-        title: 'Erro ao excluir categoria',
-        description: error,
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Categoria excluída!',
-        variant: 'success',
-      });
-
+    try {
+      await deleteCategory(categoryId);
+      
       // Recarregar categorias
-      const { data } = await getCategories(user!.id);
-      if (data) setCategories(data);
-    }
+      const result = await getCategories(user.id);
+      if (result.data) {
+        setCategories(result.data);
+      }
 
-    setLoading(false);
+      toast({
+        title: "Categoria excluída",
+        description: "Categoria excluída com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao excluir categoria",
+        description: "Não foi possível excluir a categoria.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const despesas = categories.filter((c) => c.tipo === 'despesa');
-  const receitas = categories.filter((c) => c.tipo === 'receita');
+  const toggleTheme = () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', newDarkMode);
+    
+    toast({
+      title: "Tema alterado",
+      description: `Tema alterado para ${newDarkMode ? 'escuro' : 'claro'}.`,
+    });
+  };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
+    <div className="container py-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Configurações</h1>
+        <h1 className="text-3xl font-bold mb-2">Configurações</h1>
         <p className="text-muted-foreground">
-          Gerencie suas preferências e categorias
+          Personalize sua experiência e gerencie suas preferências
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="profile">
-            <User className="h-4 w-4 mr-2" />
-            Perfil
-          </TabsTrigger>
-          <TabsTrigger value="categories">
-            <Tag className="h-4 w-4 mr-2" />
-            Categorias
-          </TabsTrigger>
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="menu">Menu</TabsTrigger>
+          <TabsTrigger value="categories">Categorias</TabsTrigger>
+          <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
 
-        {/* Perfil */}
+        {/* Aba Perfil */}
         <TabsContent value="profile">
           <Card>
             <CardHeader>
-              <CardTitle>Informações do Perfil</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Foto de Perfil
+              </CardTitle>
               <CardDescription>
-                Suas informações pessoais e de acesso
+                Altere sua foto de perfil
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Foto de Perfil */}
-              <div className="space-y-4">
-                <Label>Foto de Perfil</Label>
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    {profileImage ? (
-                      <img
-                        src={profileImage}
-                        alt="Foto de perfil"
-                        className="h-20 w-20 rounded-full object-cover border-2 border-border"
-                      />
-                    ) : (
-                      <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center border-2 border-border">
-                        <User className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      id="profile-image"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="profile-image"
-                      className="absolute bottom-0 right-0 h-8 w-8 bg-primary rounded-full flex items-center justify-center cursor-pointer hover:bg-primary/90 transition-colors"
-                    >
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt="Perfil"
+                    className="w-20 h-20 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center">
+                    <User className="h-10 w-10 text-white" />
+                  </div>
+                )}
+                
+                <div className="flex-1">
+                  <Label htmlFor="profile-image" className="cursor-pointer">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                       {uploadingImage ? (
-                        <Loader2 className="h-4 w-4 text-primary-foreground animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Camera className="h-4 w-4 text-primary-foreground" />
+                        <Camera className="h-4 w-4" />
                       )}
-                    </label>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Clique na câmera para alterar sua foto de perfil
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Formatos: JPG, PNG. Tamanho máximo: 5MB
-                    </p>
-                    {profileImage && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRemoveImage}
-                        className="mt-2"
-                      >
-                        Remover foto
-                      </Button>
-                    )}
-                  </div>
+                      {uploadingImage ? 'Enviando...' : 'Alterar Foto'}
+                    </div>
+                  </Label>
+                  <Input
+                    id="profile-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Nome</Label>
-                <Input
-                  value={user?.user_metadata?.nome || ''}
-                  disabled
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>E-mail</Label>
-                <Input value={user?.email || ''} disabled />
-              </div>
-
-              <div className="pt-4">
-                <p className="text-sm text-muted-foreground">
-                  Para alterar suas informações, entre em contato com o suporte.
-                </p>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Categorias */}
-        <TabsContent value="categories" className="space-y-4">
-          {/* Criar Nova Categoria */}
+        {/* Aba Menu */}
+        <TabsContent value="menu">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Posição do Menu */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layout className="h-5 w-5" />
+                  Posição do Menu
+                </CardTitle>
+                <CardDescription>
+                  Escolha onde o menu de navegação deve aparecer
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant={menuSettings.position === 'top' ? 'default' : 'outline'}
+                    onClick={() => updatePosition('top')}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="w-4 h-1 bg-current rounded" />
+                    Topo
+                  </Button>
+                  <Button
+                    variant={menuSettings.position === 'side' ? 'default' : 'outline'}
+                    onClick={() => updatePosition('side')}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="w-1 h-4 bg-current rounded" />
+                    Lateral
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Comportamento do Menu */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MenuIcon className="h-5 w-5" />
+                  Comportamento do Menu
+                </CardTitle>
+                <CardDescription>
+                  Escolha como o menu deve se comportar
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant={menuSettings.behavior === 'fixed' ? 'default' : 'outline'}
+                    onClick={() => updateBehavior('fixed')}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="w-4 h-4 bg-current rounded" />
+                    Fixo
+                  </Button>
+                  <Button
+                    variant={menuSettings.behavior === 'collapsible' ? 'default' : 'outline'}
+                    onClick={() => updateBehavior('collapsible')}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="w-4 h-4 border-2 border-current rounded" />
+                    Suspenso
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Aba Categorias */}
+        <TabsContent value="categories">
           <Card>
             <CardHeader>
-              <CardTitle>Nova Categoria</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5" />
+                Categorias
+              </CardTitle>
               <CardDescription>
-                Crie categorias personalizadas para organizar suas transações
+                Gerencie suas categorias de despesas e receitas
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="nome">Nome</Label>
+            <CardContent className="space-y-6">
+              {/* Nova Categoria */}
+              <div className="space-y-3">
+                <Label htmlFor="new-category">Nova Categoria</Label>
+                <div className="flex gap-2">
                   <Input
-                    id="nome"
+                    id="new-category"
+                    placeholder="Nome da categoria"
                     value={newCategory.nome}
-                    onChange={(e) =>
-                      setNewCategory({ ...newCategory, nome: e.target.value })
-                    }
-                    placeholder="Ex: Transporte"
+                    onChange={(e) => setNewCategory({ ...newCategory, nome: e.target.value })}
+                    className="flex-1"
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tipo">Tipo</Label>
-                  <select
-                    id="tipo"
-                    value={newCategory.tipo}
-                    onChange={(e) =>
-                      setNewCategory({
-                        ...newCategory,
-                        tipo: e.target.value as 'receita' | 'despesa',
-                      })
-                    }
-                    className="w-full h-10 px-3 border rounded-md"
+                  <Button
+                    onClick={handleCreateCategory}
+                    disabled={loading || !newCategory.nome.trim()}
                   >
-                    <option value="despesa">Despesa</option>
-                    <option value="receita">Receita</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cor">Cor</Label>
-                  <div className="flex gap-2">
-                    <input
-                      id="cor"
-                      type="color"
-                      value={newCategory.cor}
-                      onChange={(e) =>
-                        setNewCategory({ ...newCategory, cor: e.target.value })
-                      }
-                      className="h-10 w-20 border rounded cursor-pointer"
-                    />
-                    <Button
-                      onClick={handleCreateCategory}
-                      disabled={loading || !newCategory.nome}
-                      className="flex-1"
-                    >
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Adicionar
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Categorias de Despesa */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Categorias de Despesa</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2">
-                {despesas.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: cat.cor }}
-                      />
-                      <span className="font-medium">{cat.nome}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteCategory(cat.id)}
-                      disabled={loading}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-
-                {despesas.length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">
-                    Nenhuma categoria de despesa
+              {/* Lista de Categorias */}
+              <div className="space-y-2">
+                <Label>Categorias Existentes</Label>
+                {categories.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">
+                    Nenhuma categoria cadastrada
                   </p>
+                ) : (
+                  <div className="grid gap-2">
+                    {categories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-4 h-4 rounded"
+                            style={{ backgroundColor: category.cor }}
+                          />
+                          <span className="font-medium">{category.nome}</span>
+                          <span className="text-sm text-muted-foreground capitalize">
+                            {category.tipo}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteCategory(category.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          {/* Categorias de Receita */}
+        {/* Aba Aparência */}
+        <TabsContent value="appearance">
           <Card>
             <CardHeader>
-              <CardTitle>Categorias de Receita</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <SettingsIcon className="h-5 w-5" />
+                Aparência
+              </CardTitle>
+              <CardDescription>
+                Personalize o visual do sistema
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-2">
-                {receitas.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: cat.cor }}
-                      />
-                      <span className="font-medium">{cat.nome}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteCategory(cat.id)}
-                      disabled={loading}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-
-                {receitas.length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">
-                    Nenhuma categoria de receita
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label>Tema</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {darkMode ? 'Modo escuro' : 'Modo claro'}
                   </p>
-                )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleTheme}
+                  className="flex items-center gap-2"
+                >
+                  {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {darkMode ? 'Modo Claro' : 'Modo Escuro'}
+                </Button>
               </div>
             </CardContent>
           </Card>
