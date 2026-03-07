@@ -22,7 +22,7 @@ import {
   Maximize2 
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { aiChatBot } from '@/services/ai-chatbot-simple'; // Mudar para IA Simples
+import { aiChatBot } from '@/services/ai-chatbot-openai';
 import Image from 'next/image';
 
 // Tipos importados do serviço
