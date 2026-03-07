@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useMenuSettings, MenuPosition, MenuBehavior } from '@/hooks/use-menu-settings';
 import { Sidebar } from '@/components/navbar-sidebar';
 import { NavbarTop } from '@/components/navbar-top';
-import { Loader2, Menu, MoreHorizontal } from 'lucide-react';
+import { Loader2, Menu } from 'lucide-react';
 import { AIChatBot } from '@/components/ai-chatbot';
 
 export default function DashboardLayoutNew({
@@ -117,23 +117,23 @@ export default function DashboardLayoutNew({
           darkMode={darkMode}
           onToggleTheme={toggleTheme}
           onToggleMenu={toggleMobileMenu}
-          onHideNavbar={() => setNavbarHidden(true)}
           isMenuOpen={mobileMenuOpen}
           isCollapsible={menuSettings.behavior === 'collapsible'}
         />
       </div>
 
-      {/* Botão para mostrar navbar quando oculta */}
-      {navbarHidden && (
-        <button
-          onClick={() => setNavbarHidden(false)}
-          aria-label="Mostrar menu"
-          className="fixed top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-full shadow-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <MoreHorizontal className="h-4 w-4" />
-          <span>Mostrar menu</span>
-        </button>
-      )}
+      {/* Tab central para ocultar/mostrar navbar - igual ao sidebar */}
+      <button
+        onClick={() => setNavbarHidden(!navbarHidden)}
+        aria-label={navbarHidden ? 'Mostrar menu' : 'Ocultar menu'}
+        className={`fixed left-1/2 -translate-x-1/2 z-50 flex items-center justify-center gap-0.5 h-5 w-14 bg-muted hover:bg-accent border border-t-0 border-border rounded-b-lg shadow-sm transition-all duration-300 ${
+          navbarHidden ? 'top-0' : 'top-14'
+        }`}
+      >
+        <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+        <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+        <span className="w-1 h-1 rounded-full bg-muted-foreground" />
+      </button>
 
       {/* Main Content */}
       <main className="flex-1">

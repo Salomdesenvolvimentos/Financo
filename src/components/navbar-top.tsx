@@ -30,7 +30,6 @@ import {
   User,
   ChevronDown,
   TrendingUp,
-  ChevronUp,
 } from 'lucide-react';
 
 interface NavbarTopProps {
@@ -38,7 +37,6 @@ interface NavbarTopProps {
   darkMode: boolean;
   onToggleTheme: () => void;
   onToggleMenu: () => void;
-  onHideNavbar?: () => void;
   isMenuOpen: boolean;
   isCollapsible: boolean;
 }
@@ -48,7 +46,6 @@ export function NavbarTop({
   darkMode, 
   onToggleTheme,
   onToggleMenu,
-  onHideNavbar,
   isMenuOpen,
   isCollapsible 
 }: NavbarTopProps) {
@@ -149,11 +146,10 @@ export function NavbarTop({
                 <Image
                   src={darkMode ? logoBranco : logoPreto}
                   alt="Financo"
-                  width={28}
-                  height={28}
-                  className="rounded-lg"
+                  width={130}
+                  height={40}
+                  className="object-contain"
                 />
-                <span className="text-base font-bold tracking-tight">Financo</span>
               </Link>
 
               {/* Desktop Navigation */}
@@ -184,16 +180,6 @@ export function NavbarTop({
 
             {/* Right Section */}
             <div className="flex items-center gap-2">
-              {/* Collapse navbar button */}
-              {onHideNavbar && (
-                <button
-                  aria-label="Ocultar barra de menu"
-                  onClick={onHideNavbar}
-                  className="p-2 rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-              )}
               {/* Theme Toggle */}
               <button
                 aria-label={darkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}

@@ -80,7 +80,7 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div>
-            <Image src={logoBranco} alt="Financo" width={110} height={36} priority />
+            <Image src={logoBranco} alt="Financo" width={150} height={48} className="object-contain" priority />
           </div>
 
           {/* Texto central */}
@@ -111,7 +111,7 @@ export default function LoginPage() {
 
           {/* Logo mobile */}
           <div className="lg:hidden mb-8 flex justify-center">
-            <Image src={logoBranco} alt="Financo" width={90} height={30} priority />
+            <Image src={logoBranco} alt="Financo" width={120} height={38} className="object-contain" priority />
           </div>
 
           <div className="space-y-1 mb-8">
