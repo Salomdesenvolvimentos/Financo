@@ -109,7 +109,7 @@ export default function TransactionsPage() {
 
       const [transactionsData, categoriesData] = await Promise.all([
         getTransactions(filters),
-        getCategories(user.id),
+        getCategories(user?.id || ''),
       ]);
 
       if (transactionsData.data) {
@@ -184,7 +184,7 @@ export default function TransactionsPage() {
         const updated = { ...t, [field]: value } as Transaction;
         if (field === 'categoria_id') {
           updated.categoria =
-            categories.find((c) => c.id === value) || null;
+            categories.find((c) => c.id === value) || undefined;
         }
         return updated;
       })
@@ -213,11 +213,12 @@ export default function TransactionsPage() {
     const tempId = `new-${Date.now()}`;
     const blank: Transaction = {
       id: tempId,
+      numero: 0,
       descricao: '',
       tipo: 'despesa',
       categoria_id: '',
-      categoria: null,
-      responsavel: user?.user_metadata?.nome || '',
+      categoria: undefined,
+      responsavel: user?.nome || '',
       status: 'andamento',
       valor: 0,
       data_transacao: formatDateISO(new Date()),
@@ -225,8 +226,11 @@ export default function TransactionsPage() {
       forma_pagamento: '',
       parcelado: false,
       total_parcelas: 1,
+      parcela_atual: 1,
       observacoes: '',
       user_id: user?.id || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
     setTransactions((prev) => [blank, ...prev]);
     // start editing first cell of new row
@@ -482,7 +486,6 @@ export default function TransactionsPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="sm"
             onClick={handleDeleteAll}
             disabled={loading || transactions.length === 0}
             title="Excluir todas as transações"
@@ -490,7 +493,6 @@ export default function TransactionsPage() {
             <Trash2 className="h-4 w-4" />
           </Button>
           <Button
-            size="sm"
             onClick={handleNewTransaction}
             className="gap-2"
           >
@@ -545,7 +547,6 @@ export default function TransactionsPage() {
                         {editingCell?.id === transaction.id &&
                         editingCell.field === 'descricao' ? (
                           <Input
-                            size="sm"
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
                             onBlur={() =>
@@ -575,14 +576,13 @@ export default function TransactionsPage() {
                         {editingCell?.id === transaction.id &&
                         editingCell.field === 'tipo' ? (
                           <Select
-                            size="sm"
                             value={editingValue}
                             onValueChange={(v) => {
                               setEditingValue(v);
                               handleInlineSave(transaction.id, 'tipo', v);
                             }}
                           >
-                            <SelectTrigger size="sm">
+                            <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -613,7 +613,6 @@ export default function TransactionsPage() {
                         {editingCell?.id === transaction.id &&
                         editingCell.field === 'categoria_id' ? (
                           <Select
-                            size="sm"
                             value={editingValue}
                             onValueChange={(v) => {
                               setEditingValue(v);
@@ -624,7 +623,7 @@ export default function TransactionsPage() {
                               );
                             }}
                           >
-                            <SelectTrigger size="sm">
+                            <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -652,7 +651,6 @@ export default function TransactionsPage() {
                         {editingCell?.id === transaction.id &&
                         editingCell.field === 'forma_pagamento' ? (
                           <Input
-                            size="sm"
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
                             onBlur={() =>
@@ -687,7 +685,6 @@ export default function TransactionsPage() {
                         {editingCell?.id === transaction.id &&
                         editingCell.field === 'valor' ? (
                           <Input
-                            size="sm"
                             type="number"
                             step="0.01"
                             value={editingValue}
@@ -719,7 +716,6 @@ export default function TransactionsPage() {
                         {editingCell?.id === transaction.id &&
                         editingCell.field === 'data_transacao' ? (
                           <Input
-                            size="sm"
                             type="date"
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
@@ -755,14 +751,13 @@ export default function TransactionsPage() {
                         {editingCell?.id === transaction.id &&
                         editingCell.field === 'status' ? (
                           <Select
-                            size="sm"
                             value={editingValue}
                             onValueChange={(v) => {
                               setEditingValue(v);
                               handleInlineSave(transaction.id, 'status', v);
                             }}
                           >
-                            <SelectTrigger size="sm">
+                            <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

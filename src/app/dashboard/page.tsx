@@ -318,7 +318,7 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">
             {viewMode === 'yearly' 
               ? `Visão anual de ${selectedMonth.getFullYear()}` 
-              : `Visão de ${getMonthName(selectedMonth.getMonth())} de ${selectedMonth.getFullYear()}`}
+              : `Visão de ${getMonthName(selectedMonth)} de ${selectedMonth.getFullYear()}`}
           </p>
         </div>
 
@@ -478,7 +478,7 @@ export default function DashboardPage() {
           <CardDescription>
             Movimentações por forma de pagamento em {viewMode === 'yearly' 
               ? `${selectedMonth.getFullYear()}` 
-              : `${getMonthName(selectedMonth.getMonth())} de ${selectedMonth.getFullYear()}`
+              : `${getMonthName(selectedMonth)} de ${selectedMonth.getFullYear()}`
             }
           </CardDescription>
         </CardHeader>

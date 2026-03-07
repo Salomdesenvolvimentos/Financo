@@ -120,7 +120,7 @@ export default function SettingsPageNew() {
 
     setLoading(true);
     try {
-      await createCategory(user.id, newCategory);
+      await createCategory(newCategory);
       setNewCategory({ nome: '', tipo: 'despesa', cor: '#3B82F6' });
       
       // Recarregar categorias
@@ -148,7 +148,7 @@ export default function SettingsPageNew() {
     if (!user?.id) return;
 
     try {
-      await deleteCategory(user.id, categoryId);
+      await deleteCategory(categoryId);
       
       // Recarregar categorias
       const result = await getCategories(user.id);

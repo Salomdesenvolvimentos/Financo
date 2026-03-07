@@ -13,6 +13,7 @@ import type {
   MonthlyTrend,
   FinancialScore,
   WeekdayExpense,
+  DailyExpense,
   Transaction,
 } from '@/types';
 import { getMonthRange } from '@/lib/utils';
