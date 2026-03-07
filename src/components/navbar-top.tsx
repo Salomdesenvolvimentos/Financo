@@ -124,7 +124,7 @@ export function NavbarTop({
   return (
     <>
       {/* Header */}
-      <header className="glass border-b border-border sticky top-0 z-40">
+      <header className="glass border-b border-border sticky top-0 z-[100]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-14 relative">
             {/* Left Section */}
@@ -219,7 +219,7 @@ export function NavbarTop({
                 {userMenuOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-56 bg-card rounded-xl shadow-lg border border-border animate-scale-in overflow-hidden"
+                    className="absolute right-0 mt-2 w-56 bg-card rounded-xl shadow-lg border border-border animate-scale-in overflow-hidden z-[300]"
                   >
                     <div className="p-3 border-b border-border">
                       <p className="text-sm font-semibold truncate">{userName || 'Usuário'}</p>
