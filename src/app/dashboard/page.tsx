@@ -228,7 +228,7 @@ export default function DashboardPage() {
 
       if (viewMode === 'yearly') {
         // Carregar dados anuais
-        const yearlyData = await getYearlyData(user.id, selectedMonth.getFullYear());
+        const yearlyData = await getYearlyData(user?.id || '', selectedMonth.getFullYear());
         // Converter para formato compatível
         summaryData = yearlyData ? {
           receita_total: yearlyData.total_receitas,
@@ -238,17 +238,17 @@ export default function DashboardPage() {
           contas_pendentes: yearlyData.contas_pendentes,
         } as FinancialSummary : null;
         // Para dados de cartões, usar o mês selecionado
-        cardsData = await getCardData(user.id, selectedMonth);
+        cardsData = await getCardData(user?.id || '', selectedMonth);
       } else {
         // Carregar dados mensais
         [summaryData, categoriesData, dailyData, trendData, , cardsData] =
           await Promise.all([
-            getFinancialSummary(user.id, selectedMonth),
-            getCategoryExpenses(user.id, selectedMonth, 'despesa'),
-            getDailyExpenses(user.id, selectedMonth),
-            getMonthlyTrend(user.id),
-            calculateFinancialScore(user.id, selectedMonth),
-            getCardData(user.id, selectedMonth),
+            getFinancialSummary(user?.id || '', selectedMonth),
+            getCategoryExpenses(user?.id || '', selectedMonth, 'despesa'),
+            getDailyExpenses(user?.id || '', selectedMonth),
+            getMonthlyTrend(user?.id || ''),
+            calculateFinancialScore(user?.id || '', selectedMonth),
+            getCardData(user?.id || '', selectedMonth),
           ]);
         setCategoryExpenses(categoriesData);
         setDailyExpenses(dailyData);
@@ -259,8 +259,8 @@ export default function DashboardPage() {
       const customScore = calculateCustomHealthScore(summaryData, healthThreshold);
 
       // Carregar previsão mensal
-      const forecastResult = await calculateMonthlyForecast(user.id, selectedMonth.getFullYear(), selectedMonth.getMonth() + 1);
-      const alertsResult = await generateForecastAlerts(user.id, selectedMonth.getFullYear(), selectedMonth.getMonth() + 1);
+      const forecastResult = await calculateMonthlyForecast(user?.id || '', selectedMonth.getFullYear(), selectedMonth.getMonth() + 1);
+      const alertsResult = await generateForecastAlerts(user?.id || '', selectedMonth.getFullYear(), selectedMonth.getMonth() + 1);
 
       setSummary(summaryData);
       setCardData(cardsData);
@@ -350,7 +350,7 @@ export default function DashboardPage() {
                   value={selectedMonth.getFullYear()}
                   onChange={(e) => {
                     const year = parseInt(e.target.value);
-                    setSelectedMonth(new Date(year, selectedMonth.getMonth()));
+                    setSelectedMonth(new Date(year, selectedMonth.getMonth(), 1));
                   }}
                   className="px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
@@ -367,7 +367,7 @@ export default function DashboardPage() {
                   value={selectedMonth.getMonth()}
                   onChange={(e) => {
                     const month = parseInt(e.target.value);
-                    setSelectedMonth(new Date(selectedMonth.getFullYear(), month));
+                    setSelectedMonth(new Date(selectedMonth.getFullYear(), month, 1));
                   }}
                   className="px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
@@ -390,7 +390,7 @@ export default function DashboardPage() {
                 value={selectedMonth.getFullYear()}
                 onChange={(e) => {
                   const year = parseInt(e.target.value);
-                  setSelectedMonth(new Date(year, 0));
+                  setSelectedMonth(new Date(year, 0, 1));
                 }}
                 className="px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >

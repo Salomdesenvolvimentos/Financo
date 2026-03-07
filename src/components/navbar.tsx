@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { useMenuSettings, MenuPosition, MenuBehavior } from '@/hooks/use-menu-settings';
+import { MenuSettings } from '@/components/menu-settings';
 import {
   DollarSign,
   LayoutDashboard,
@@ -29,6 +31,7 @@ import {
   Sun,
   Moon,
   CreditCard,
+  Cog,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -39,9 +42,11 @@ export function Navbar({ userName }: NavbarProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { settings: menuSettings } = useMenuSettings();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Carregar foto de perfil do localStorage
   useEffect(() => {

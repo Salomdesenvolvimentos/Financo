@@ -41,7 +41,7 @@ export default function CalendarPage() {
       setLoading(true);
       
       const result = await generateMonthCalendar(
-        user.id,
+        user?.id || '',
         currentDate.getFullYear(),
         currentDate.getMonth() + 1
       );

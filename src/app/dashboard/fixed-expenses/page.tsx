@@ -77,8 +77,8 @@ export default function FixedExpensesPage() {
       setLoading(true);
       
       const [expensesResult, categoriesResult] = await Promise.all([
-        getFixedExpenses(user!.id),
-        getCategories(user!.id, 'despesa'),
+        getFixedExpenses(user?.id || ''),
+        getCategories(user?.id || ''),
       ]);
 
       if (expensesResult.data) {
@@ -386,7 +386,7 @@ export default function FixedExpensesPage() {
                 <Calendar className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-muted-foreground">Nenhum gasto fixo cadastrado</p>
                 <p className="text-sm text-muted-foreground">
-                  Clique em "Novo Gasto" para começar
+                  Clique em &quot;Novo Gasto&quot; para começar
                 </p>
               </div>
             </CardContent>
