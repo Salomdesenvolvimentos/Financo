@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import logoBranco from '@/Financo_branco.png';
@@ -48,6 +48,7 @@ export function Sidebar({
   isCollapsible 
 }: SidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const { user } = useAuth();
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -125,49 +126,55 @@ export function Sidebar({
 
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 transition-all duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-full sidebar-gradient border-r border-border z-50 transition-all duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${isCollapsible ? 'w-72' : 'w-72'}`}
+        } w-64`}
       >
         {/* Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200 dark:border-gray-700">
-          <Link href="/dashboard" className="flex items-center gap-3">
+        <div className="h-16 flex items-center justify-between px-5 border-b border-border">
+          <Link href="/dashboard" className="flex items-center gap-2.5 group" aria-label="Voltar ao Dashboard">
             <Image
               src={darkMode ? logoBranco : logoPreto}
               alt="Financo"
-              width={32}
-              height={32}
+              width={28}
+              height={28}
               className="rounded-lg"
             />
-            <span className="text-xl font-bold text-gray-900 dark:text-white">Financo</span>
+            <span className="text-lg font-bold tracking-tight">Financo</span>
           </Link>
           
           {isCollapsible && (
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              aria-label="Fechar menu"
               onClick={onClose}
-              className="p-2"
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
-            </Button>
+            </button>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-6">
-          <div className="space-y-1">
+        <nav className="flex-1 px-3 py-5" aria-label="Menu principal">
+          <div className="space-y-0.5">
             {navigationItems.map((item) => {
               const Icon = item.icon;
+              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={isCollapsible ? onClose : undefined}
-                  className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all group ${
+                    isActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  }`}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <Icon className={`h-4 w-4 flex-shrink-0 transition-colors ${isActive ? 'text-primary' : ''}`} />
                   <span className="truncate">{item.label}</span>
+                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />}
                 </Link>
               );
             })}
@@ -175,61 +182,66 @@ export function Sidebar({
         </nav>
 
         {/* User Section */}
-        <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="border-t border-border p-3">
           {/* User Profile */}
           <div className="relative">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-expanded={userMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Menu do usuário"
+              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-muted/60 transition-colors"
             >
               {profileImage ? (
-                <Image
+                <img
                   src={profileImage}
-                  alt={userName || 'User'}
-                  width={40}
-                  height={40}
-                  className="rounded-full flex-shrink-0"
+                  alt={userName || 'Usuário'}
+                  width={36}
+                  height={36}
+                  className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-2 ring-border"
                 />
               ) : (
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="h-5 w-5 text-white" />
+                <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-border"
+                  style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent-foreground)))' }}>
+                  <User className="h-4 w-4 text-white" />
                 </div>
               )}
               
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {userName || 'Usuário'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user?.email}
-                </p>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium truncate">{userName || 'Usuário'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
               
-              <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
                 userMenuOpen ? 'rotate-180' : ''
               }`} />
             </button>
 
             {/* User Dropdown */}
             {userMenuOpen && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-                <div className="py-1">
-                  <button
-                    onClick={onToggleTheme}
-                    className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-                  >
-                    {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    {darkMode ? 'Modo Claro' : 'Modo Escuro'}
-                  </button>
-                  
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full px-4 py-2 text-sm text-left text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sair
-                  </button>
-                </div>
+              <div
+                role="menu"
+                className="absolute bottom-full left-0 right-0 mb-2 bg-card rounded-xl shadow-lg border border-border animate-scale-in overflow-hidden"
+              >
+                <button
+                  role="menuitem"
+                  onClick={onToggleTheme}
+                  className="w-full px-4 py-2.5 text-sm text-left hover:bg-muted/60 flex items-center gap-3 transition-colors"
+                >
+                  {darkMode ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-blue-500" />}
+                  {darkMode ? 'Modo Claro' : 'Modo Escuro'}
+                </button>
+                
+                <div className="h-px bg-border mx-2" />
+
+                <button
+                  role="menuitem"
+                  onClick={handleSignOut}
+                  className="w-full px-4 py-2.5 text-sm text-left text-destructive hover:bg-destructive/10 flex items-center gap-3 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
               </div>
             )}
           </div>
