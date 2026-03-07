@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "vercel-build": "npm install --legacy-peer-deps && npm run build"
+    "vercel-build": "next build --no-lint"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
