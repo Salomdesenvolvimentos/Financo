@@ -268,7 +268,14 @@ export class AIChatBotService {
       return reply;
     } catch (err: any) {
       console.error('[AIChatBotService] processMessage:', err);
-      return `❌ Erro ao processar: ${err.message}. Verifique se a OPENAI_API_KEY está configurada no Vercel.`;
+      const msg: string = err?.message ?? '';
+      if (msg.includes('quota') || msg.includes('billing') || msg.includes('exceeded')) {
+        return '❌ **Limite de créditos OpenAI atingido.**\n\nPara continuar usando o assistente, acesse [platform.openai.com](https://platform.openai.com/account/billing) e adicione créditos à sua conta.';
+      }
+      if (msg.includes('API key') || msg.includes('Unauthorized') || msg.includes('401')) {
+        return '❌ **Chave de API inválida ou não configurada.**\n\nVerifique se a variável `OPENAI_API_KEY` está corretamente definida no Vercel.';
+      }
+      return '❌ Não consegui processar sua mensagem agora. Tente novamente em alguns instantes.';
     }
   }
 

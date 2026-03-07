@@ -205,7 +205,7 @@ export function AIChatBot() {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'âŒ Erro ao processar. Tente novamente.',
+        content: '❌ Não consegui processar sua mensagem. Tente novamente em instantes.',
         timestamp: new Date()
       }]);
     } finally {
@@ -220,7 +220,7 @@ export function AIChatBot() {
   // â”€â”€ Botão flutuante â”€â”€
   if (!isOpen) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-2">
+      <div className="fixed bottom-20 right-5 z-50 flex flex-col items-center gap-2">
         {/* Tooltip */}
         <div className="bg-[#0f172a] text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/10 shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none select-none"
           style={{ animation: 'fadeInUp 0.5s ease 1s both' }}>
@@ -251,7 +251,7 @@ export function AIChatBot() {
   // â”€â”€ Painel do chat â”€â”€
   return (
     <div
-      className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+      className="fixed bottom-6 right-5 z-50 flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-white/10"
       style={{
         width: '26rem',
         maxWidth: 'calc(100vw - 1.5rem)',
