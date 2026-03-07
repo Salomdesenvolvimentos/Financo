@@ -25,14 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   getInvestments,
   createInvestment,
   updateInvestment,
@@ -49,6 +41,8 @@ import {
   DollarSign,
   Loader2,
   Percent,
+  X,
+  Check,
 } from 'lucide-react';
 
 const INVESTMENT_TYPE_LABELS: Record<InvestmentType, string> = {
@@ -90,7 +84,7 @@ export default function InvestmentsPage() {
   const { user } = useAuth();
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [formData, setFormData] = useState<InvestmentFormData>(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -109,7 +103,7 @@ export default function InvestmentsPage() {
     setLoading(false);
   }
 
-  function openDialog(investment?: Investment) {
+  function openForm(investment?: Investment) {
     if (investment) {
       setEditingInvestment(investment);
       setFormData({
@@ -128,7 +122,13 @@ export default function InvestmentsPage() {
       setEditingInvestment(null);
       setFormData(DEFAULT_FORM);
     }
-    setDialogOpen(true);
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+    setEditingInvestment(null);
+    setFormData(DEFAULT_FORM);
   }
 
   async function handleSubmit() {
@@ -152,7 +152,7 @@ export default function InvestmentsPage() {
     }
 
     await loadInvestments();
-    setDialogOpen(false);
+    closeForm();
     setSubmitting(false);
   }
 
@@ -187,7 +187,7 @@ export default function InvestmentsPage() {
           <h1 className="text-3xl font-bold">Investimentos</h1>
           <p className="text-muted-foreground">Acompanhe sua carteira de investimentos</p>
         </div>
-        <Button onClick={() => openDialog()}>
+        <Button onClick={() => openForm()} disabled={formOpen}>
           <Plus className="h-4 w-4 mr-2" />
           Novo Investimento
         </Button>
@@ -245,6 +245,129 @@ export default function InvestmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Formulário inline */}
+      {formOpen && (
+        <Card className="border-primary/40">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                {editingInvestment ? 'Editar Investimento' : 'Novo Investimento'}
+              </CardTitle>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={closeForm}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="nome">Nome *</Label>
+                <Input
+                  id="nome"
+                  placeholder="Ex: CDB Nubank 120% CDI"
+                  value={formData.nome}
+                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tipo">Tipo *</Label>
+                <Select
+                  value={formData.tipo}
+                  onValueChange={(v) => setFormData({ ...formData, tipo: v as InvestmentType })}
+                >
+                  <SelectTrigger id="tipo"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(INVESTMENT_TYPE_LABELS) as [InvestmentType, string][]).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="instituicao">Instituição *</Label>
+                <Input
+                  id="instituicao"
+                  placeholder="Ex: Nubank, XP, B3"
+                  value={formData.instituicao}
+                  onChange={(e) => setFormData({ ...formData, instituicao: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="valor_investido">Valor Investido (R$) *</Label>
+                <Input
+                  id="valor_investido"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.valor_investido || ''}
+                  onChange={(e) => setFormData({ ...formData, valor_investido: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="valor_atual">Valor Atual (R$) *</Label>
+                <Input
+                  id="valor_atual"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.valor_atual || ''}
+                  onChange={(e) => setFormData({ ...formData, valor_atual: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="rentabilidade_anual">Rentabilidade a.a. (%)</Label>
+                <Input
+                  id="rentabilidade_anual"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Ex: 12.5"
+                  value={formData.rentabilidade_anual ?? ''}
+                  onChange={(e) => setFormData({ ...formData, rentabilidade_anual: e.target.value ? parseFloat(e.target.value) : undefined })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="data_inicio">Data de Início *</Label>
+                <Input
+                  id="data_inicio"
+                  type="date"
+                  value={formData.data_inicio}
+                  onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="vencimento">Vencimento</Label>
+                <Input
+                  id="vencimento"
+                  type="date"
+                  value={formData.vencimento || ''}
+                  onChange={(e) => setFormData({ ...formData, vencimento: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="notas">Notas</Label>
+                <Input
+                  id="notas"
+                  placeholder="Observações opcionais"
+                  value={formData.notas || ''}
+                  onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={closeForm}>Cancelar</Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !formData.nome.trim() || !formData.instituicao.trim()}
+              >
+                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                {editingInvestment ? 'Salvar' : 'Criar Investimento'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabela */}
       <Card>
@@ -338,7 +461,7 @@ export default function InvestmentsPage() {
                         </td>
                         <td className="py-3 px-6 text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(inv)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openForm(inv)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(inv)}>
@@ -355,143 +478,6 @@ export default function InvestmentsPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Dialog criar/editar */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingInvestment ? 'Editar Investimento' : 'Novo Investimento'}</DialogTitle>
-            <DialogDescription>
-              {editingInvestment ? 'Atualize os dados do investimento.' : 'Preencha os dados do novo investimento.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="nome">Nome *</Label>
-              <Input
-                id="nome"
-                placeholder="Ex: CDB Nubank 120% CDI"
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="tipo">Tipo *</Label>
-                <Select
-                  value={formData.tipo}
-                  onValueChange={(v) => setFormData({ ...formData, tipo: v as InvestmentType })}
-                >
-                  <SelectTrigger id="tipo">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.entries(INVESTMENT_TYPE_LABELS) as [InvestmentType, string][]).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="instituicao">Instituição *</Label>
-                <Input
-                  id="instituicao"
-                  placeholder="Ex: Nubank, XP, B3"
-                  value={formData.instituicao}
-                  onChange={(e) => setFormData({ ...formData, instituicao: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="valor_investido">Valor Investido (R$) *</Label>
-                <Input
-                  id="valor_investido"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.valor_investido || ''}
-                  onChange={(e) => setFormData({ ...formData, valor_investido: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="valor_atual">Valor Atual (R$) *</Label>
-                <Input
-                  id="valor_atual"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.valor_atual || ''}
-                  onChange={(e) => setFormData({ ...formData, valor_atual: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="data_inicio">Data de Início *</Label>
-                <Input
-                  id="data_inicio"
-                  type="date"
-                  value={formData.data_inicio}
-                  onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="vencimento">Vencimento</Label>
-                <Input
-                  id="vencimento"
-                  type="date"
-                  value={formData.vencimento || ''}
-                  onChange={(e) => setFormData({ ...formData, vencimento: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="rentabilidade_anual">Rentabilidade Anual (%)</Label>
-              <Input
-                id="rentabilidade_anual"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Ex: 12.5"
-                value={formData.rentabilidade_anual ?? ''}
-                onChange={(e) => setFormData({ ...formData, rentabilidade_anual: e.target.value ? parseFloat(e.target.value) : undefined })}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="notas">Notas</Label>
-              <Input
-                id="notas"
-                placeholder="Observações opcionais"
-                value={formData.notas || ''}
-                onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || !formData.nome.trim() || !formData.instituicao.trim()}
-            >
-              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              {editingInvestment ? 'Salvar' : 'Criar Investimento'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

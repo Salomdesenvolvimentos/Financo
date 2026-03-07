@@ -27,6 +27,7 @@ import { parsePDF, validateTransactions } from '@/services/pdf-parser';
 import { suggestCategory, saveLearnedRule } from '@/services/categorization';
 import type { Category } from '@/types';
 import { formatDateISO } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 export default function ImportPage() {
   const { user } = useAuth();
@@ -49,19 +50,35 @@ export default function ImportPage() {
     const lines = text.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const separator = lines[0].includes(';') ? ';' : ',';
+    const headers = lines[0].split(separator).map(h => h.trim().replace(/"/g, '').toLowerCase());
     const transactions = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',');
+      const values = lines[i].split(separator);
       const row: any = {};
       headers.forEach((header, index) => {
-        row[header] = values[index]?.trim() || '';
+        row[header] = values[index]?.trim().replace(/"/g, '') || '';
       });
       transactions.push(row);
     }
 
     return transactions;
+  };
+
+  const parseXLSX = async (file: File): Promise<any[]> => {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
+    if (rows.length < 2) return [];
+    const headers = (rows[0] as string[]).map((h: string) => String(h).trim().toLowerCase());
+    return rows.slice(1).map((row: any[]) => {
+      const obj: any = {};
+      headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? String(row[i]).trim() : ''; });
+      return obj;
+    }).filter((r: any) => Object.values(r).some(v => v !== ''));
   };
 
   const findCategory = (description: string): string => {
@@ -125,6 +142,15 @@ export default function ImportPage() {
           tipo: t.tipo,
           forma_pagamento: t.forma_pagamento || ''
         }));
+      } else if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx') || file.type.includes('spreadsheet') || file.type.includes('excel')) {
+        // Processar XLS/XLSX
+        toast({ title: 'Processando planilha...', description: 'Extraindo transações do Excel' });
+        parsedData = await parseXLSX(file);
+        if (parsedData.length === 0) {
+          toast({ title: 'Planilha vazia', description: 'Nenhuma linha encontrada', variant: 'destructive' });
+          setUploading(false);
+          return;
+        }
       } else {
         // Processar CSV
         const text = await file.text();
@@ -413,14 +439,16 @@ export default function ImportPage() {
                 <div className="mt-4 p-4 bg-muted rounded-lg">
                   <h4 className="font-semibold mb-2">Formatos Suportados</h4>
                   <div className="space-y-2 text-sm text-muted-foreground">
-                    <p><strong>PDF:</strong> Extratos do Nubank (automático)</p>
-                    <p><strong>CSV:</strong> data, descrição, valor</p>
+                    <p><strong>PDF:</strong> Extratos do Nubank / Santander</p>
+                    <p><strong>CSV:</strong> separado por vírgula ou ponto-e-vírgula</p>
+                    <p><strong>XLS / XLSX:</strong> planilhas Excel dos bancos</p>
                   </div>
                   <code className="text-xs bg-background p-2 block rounded mt-2">
                     data,descrição,valor<br />
                     15/01/2026,Mercado,-150.50<br />
                     20/01/2026,Salário,3000.00
                   </code>
+                  <p className="text-xs text-muted-foreground mt-2">Para XLS/XLSX, a primeira linha deve ser o cabeçalho com as colunas data, descrição e valor.</p>
                 </div>
 
                 <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
