@@ -20,7 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus, Building2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { createTransaction } from '@/services/transactions.local';
 import { getCategories } from '@/services/categories.local';
 import { parsePDF, validateTransactions } from '@/services/pdf-parser';
@@ -38,6 +39,17 @@ export default function ImportPage() {
   const [manualText, setManualText] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
 
+  // Pluggy state
+  const [pluggyStep, setPluggyStep] = useState<'idle' | 'connecting' | 'accounts' | 'importing'>('idle');
+  const [pluggyAccounts, setPluggyAccounts] = useState<any[]>([]);
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [pluggyDateFrom, setPluggyDateFrom] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [pluggyDateTo, setPluggyDateTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [pluggyProgress, setPluggyProgress] = useState('');
+
   useEffect(() => {
     if (user) {
       getCategories(user.id).then(({ data }) => {
@@ -45,6 +57,91 @@ export default function ImportPage() {
       });
     }
   }, [user]);
+
+  // Carrega o script do Pluggy Connect Widget
+  useEffect(() => {
+    const id = 'pluggy-connect-script';
+    if (document.getElementById(id)) return;
+    const script = document.createElement('script');
+    script.id = id;
+    script.src = 'https://cdn.pluggy.ai/pluggy-connect/v2/pluggy-connect.js';
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
+  const handlePluggyConnect = async () => {
+    setPluggyStep('connecting');
+    try {
+      const res = await fetch('/api/pluggy/token', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const PluggyConnect = (window as any).PluggyConnect;
+      if (!PluggyConnect) throw new Error('Widget do Pluggy ainda carregando. Aguarde e tente novamente.');
+
+      const widget = new PluggyConnect({
+        connectToken: data.accessToken,
+        onSuccess: async ({ item }: any) => {
+          const accRes = await fetch(`/api/pluggy/accounts?itemId=${item.id}`);
+          const accData = await accRes.json();
+          const accounts = accData.results ?? accData.accounts ?? [];
+          setPluggyAccounts(accounts);
+          setSelectedAccounts(accounts.map((a: any) => a.id));
+          setPluggyStep('accounts');
+        },
+        onError: (err: any) => {
+          toast({ title: 'Erro ao conectar banco', description: err?.message ?? 'Tente novamente', variant: 'destructive' });
+          setPluggyStep('idle');
+        },
+        onClose: () => { if (pluggyStep === 'connecting') setPluggyStep('idle'); },
+      });
+      widget.init();
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+      setPluggyStep('idle');
+    }
+  };
+
+  const handlePluggyImport = async () => {
+    if (!user || selectedAccounts.length === 0) return;
+    setPluggyStep('importing');
+    let total = 0;
+    try {
+      for (const accountId of selectedAccounts) {
+        const account = pluggyAccounts.find((a) => a.id === accountId);
+        setPluggyProgress(`Importando ${account?.name ?? 'conta'}...`);
+        const params = new URLSearchParams({ accountId, from: pluggyDateFrom, to: pluggyDateTo });
+        const res = await fetch(`/api/pluggy/transactions?${params}`);
+        const data = await res.json();
+        const txs: any[] = data.results ?? data.transactions ?? [];
+        for (const tx of txs) {
+          const tipo = tx.type === 'CREDIT' ? 'receita' : 'despesa';
+          const valor = Math.abs(Number(tx.amount));
+          if (!valor) continue;
+          const description = tx.merchant?.name || tx.description || 'Transação';
+          await createTransaction({
+            descricao: description.substring(0, 100),
+            tipo,
+            categoria_id: findCategory(description),
+            valor,
+            data_transacao: tx.date ? tx.date.split('T')[0] : formatDateISO(new Date()),
+            responsavel: user.nome || user.email,
+            status: 'pago',
+            parcelado: false,
+            total_parcelas: 1,
+          });
+          total++;
+        }
+      }
+      toast({ title: `${total} transações importadas!`, description: 'Banco conectado com sucesso!' });
+      setPluggyStep('idle');
+      setPluggyAccounts([]);
+      setTimeout(() => router.push('/dashboard/transactions'), 1000);
+    } catch (err: any) {
+      toast({ title: 'Erro ao importar', description: err.message, variant: 'destructive' });
+      setPluggyStep('accounts');
+    }
+  };
 
   const parseCSV = (text: string): any[] => {
     const lines = text.split('\n').filter(line => line.trim());
@@ -367,10 +464,11 @@ export default function ImportPage() {
       </div>
 
       <Tabs defaultValue="file" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="file">📄 Upload (PDF/CSV)</TabsTrigger>
           <TabsTrigger value="csv">CSV Rápido</TabsTrigger>
           <TabsTrigger value="manual">Manual</TabsTrigger>
+          <TabsTrigger value="pluggy">🏦 Banco Direto</TabsTrigger>
         </TabsList>
 
         <TabsContent value="file" className="space-y-6">
@@ -706,6 +804,121 @@ export default function ImportPage() {
                 <li>Use ponto (.) para decimais, não vírgula</li>
                 <li>As categorias serão atribuídas automaticamente com base na descrição</li>
               </ul>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pluggy" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                Conectar Banco Diretamente
+              </CardTitle>
+              <CardDescription>
+                Importe transações diretamente do seu banco via Open Finance (Pluggy)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {pluggyStep === 'idle' && (
+                <div className="space-y-6">
+                  <div className="p-4 bg-muted rounded-lg space-y-2 text-sm text-muted-foreground">
+                    <p>✅ Conecte sua conta bancária de forma segura</p>
+                    <p>✅ Mais de 100 bancos brasileiros suportados (Nubank, Itaú, Bradesco, XP, Inter...)</p>
+                    <p>✅ As credenciais do banco <strong>nunca</strong> ficam armazenadas aqui</p>
+                  </div>
+                  <Button onClick={handlePluggyConnect} className="w-full gap-2" size="lg">
+                    <Building2 className="h-4 w-4" />
+                    Conectar meu banco
+                  </Button>
+                </div>
+              )}
+
+              {pluggyStep === 'connecting' && (
+                <div className="flex flex-col items-center justify-center py-12 gap-4 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p>Abrindo janela de conexão...</p>
+                </div>
+              )}
+
+              {pluggyStep === 'accounts' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold mb-3">Contas encontradas</h3>
+                    <div className="space-y-2">
+                      {pluggyAccounts.map((acc) => (
+                        <label key={acc.id} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded"
+                            checked={selectedAccounts.includes(acc.id)}
+                            onChange={(e) => {
+                              setSelectedAccounts(e.target.checked
+                                ? [...selectedAccounts, acc.id]
+                                : selectedAccounts.filter((id) => id !== acc.id)
+                              );
+                            }}
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{acc.name}</p>
+                            <p className="text-xs text-muted-foreground">{acc.type} {acc.number ? `• ****${acc.number.slice(-4)}` : ''}</p>
+                          </div>
+                          {acc.balance != null && (
+                            <span className="text-sm font-semibold text-right">
+                              R$ {Number(acc.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pluggy-from">De</Label>
+                      <Input id="pluggy-from" type="date" value={pluggyDateFrom} onChange={(e) => setPluggyDateFrom(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pluggy-to">Até</Label>
+                      <Input id="pluggy-to" type="date" value={pluggyDateTo} onChange={(e) => setPluggyDateTo(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => { setPluggyStep('idle'); setPluggyAccounts([]); }} className="flex-1">
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handlePluggyImport}
+                      disabled={selectedAccounts.length === 0}
+                      className="flex-1 gap-2"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Importar {selectedAccounts.length > 0 ? `(${selectedAccounts.length} conta${selectedAccounts.length > 1 ? 's' : ''})` : ''}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {pluggyStep === 'importing' && (
+                <div className="flex flex-col items-center justify-center py-12 gap-4 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm">{pluggyProgress || 'Importando transações...'}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold">Como funciona?</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>1. Clique em <strong>"Conectar meu banco"</strong> — abre a janela segura do Pluggy</p>
+              <p>2. Escolha seu banco e autentique com suas credenciais bancárias</p>
+              <p>3. Selecione as contas e o período desejado</p>
+              <p>4. As transações são importadas automaticamente com categorização inteligente</p>
+              <p className="pt-2 text-xs">Requer configuração das credenciais Pluggy em <code>.env.local</code></p>
             </CardContent>
           </Card>
         </TabsContent>
