@@ -362,3 +362,39 @@ export interface CalendarEvent {
   categoria?: string;
   cor?: string;
 }
+
+// ============================================
+// Tipos para Investimentos
+// ============================================
+
+export type InvestmentType = 'cdb' | 'acoes' | 'fii' | 'tesouro_direto' | 'crypto' | 'poupanca' | 'lci_lca' | 'outro';
+
+export interface Investment {
+  id: string;
+  user_id: string;
+  nome: string;
+  tipo: InvestmentType;
+  instituicao: string;
+  valor_investido: number;
+  valor_atual: number;
+  data_inicio: string;
+  vencimento?: string;
+  rentabilidade_anual?: number;
+  notas?: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvestmentFormData {
+  nome: string;
+  tipo: InvestmentType;
+  instituicao: string;
+  valor_investido: number;
+  valor_atual: number;
+  data_inicio: string;
+  vencimento?: string;
+  rentabilidade_anual?: number;
+  notas?: string;
+  ativo: boolean;
+}

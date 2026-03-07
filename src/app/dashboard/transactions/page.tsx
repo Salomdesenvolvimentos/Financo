@@ -54,6 +54,8 @@ import {
   Edit,
   Trash2,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -375,6 +377,19 @@ export default function TransactionsPage() {
       : true
   );
 
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Reset para primeira página ao mudar filtros ou busca
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filters]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / rowsPerPage));
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
   return (
     <div className="space-y-4">
       {/* Barra de Controle */}
@@ -509,7 +524,7 @@ export default function TransactionsPage() {
             <div>
               <CardTitle>Transações</CardTitle>
               <CardDescription className="mt-1">
-                {filteredTransactions.length} de {transactions.length}
+                {filteredTransactions.length} registro{filteredTransactions.length !== 1 ? 's' : ''} encontrado{filteredTransactions.length !== 1 ? 's' : ''}
               </CardDescription>
             </div>
           </div>
@@ -535,7 +550,7 @@ export default function TransactionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.map((transaction) => (
+                  {paginatedTransactions.map((transaction) => (
                     <tr key={transaction.id} className="border-b hover:bg-muted/30 transition-colors">
                       {/* Descrição editable */}
                       <td
@@ -818,6 +833,53 @@ export default function TransactionsPage() {
             </div>
           )}
         </CardContent>
+
+        {/* Paginação */}
+        {filteredTransactions.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Linhas por página:</span>
+              <Select
+                value={rowsPerPage.toString()}
+                onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}
+              >
+                <SelectTrigger className="h-8 w-16 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-muted-foreground">
+                {(currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, filteredTransactions.length)} de {filteredTransactions.length}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Dialog de Criação/Edição */}

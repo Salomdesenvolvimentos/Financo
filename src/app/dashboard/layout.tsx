@@ -12,6 +12,7 @@ import { useMenuSettings, MenuPosition, MenuBehavior } from '@/hooks/use-menu-se
 import { Sidebar } from '@/components/navbar-sidebar';
 import { NavbarTop } from '@/components/navbar-top';
 import { Loader2, Menu } from 'lucide-react';
+import { AIChatBot } from '@/components/ai-chatbot';
 
 export default function DashboardLayoutNew({
   children,
@@ -97,6 +98,7 @@ export default function DashboardLayoutNew({
             {children}
           </div>
         </main>
+        <AIChatBot />
       </div>
     );
   }
@@ -119,6 +121,7 @@ export default function DashboardLayoutNew({
           {children}
         </div>
       </main>
+      <AIChatBot />
     </div>
   );
 }

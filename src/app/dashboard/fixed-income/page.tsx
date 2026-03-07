@@ -416,74 +416,84 @@ export default function FixedIncomePage() {
         </Card>
       </div>
 
-      {/* Lista de Rendas */}
-      <div className="grid gap-4">
-        {income.length === 0 ? (
-          <Card>
-            <CardContent className="flex items-center justify-center h-32">
-              <div className="text-center">
-                <DollarSign className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-muted-foreground">Nenhuma renda fixa cadastrada</p>
-                <p className="text-sm text-muted-foreground">
-                  Clique em &quot;Nova Renda&quot; para começar
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          income.map((incomeItem) => (
-            <Card key={incomeItem.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">{incomeItem.descricao}</h3>
-                      {!incomeItem.ativo && (
-                        <span className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded">
-                          Inativo
+      {/* Tabela de Rendas */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle>Rendas Cadastradas</CardTitle>
+          <CardDescription>{income.length} renda{income.length !== 1 ? 's' : ''} no total</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {income.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <DollarSign className="h-10 w-10 mb-3 opacity-40" />
+              <p className="font-medium">Nenhuma renda fixa cadastrada</p>
+              <p className="text-sm mt-1">Clique em &quot;Nova Renda&quot; para começar</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-6">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-left py-3 px-6 font-medium text-sm">Descrição</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Tipo</th>
+                    <th className="text-center py-3 px-6 font-medium text-sm">Recebimento</th>
+                    <th className="text-right py-3 px-6 font-medium text-sm">Valor</th>
+                    <th className="text-center py-3 px-6 font-medium text-sm">Status</th>
+                    <th className="text-right py-3 px-6 font-medium text-sm">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {income.map((incomeItem) => (
+                    <tr key={incomeItem.id} className="border-b hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-6">
+                        <span className="text-sm font-medium">{incomeItem.descricao}</span>
+                      </td>
+                      <td className="py-3 px-6">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          incomeItem.tipo === 'salario' ? 'bg-primary/10 text-primary' :
+                          incomeItem.tipo === 'adiantamento' ? 'bg-warning/10 text-warning' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {incomeItem.tipo === 'salario' ? 'Salário' :
+                           incomeItem.tipo === 'adiantamento' ? 'Adiantamento' : 'Outro'}
                         </span>
-                      )}
-                      <span className={`px-2 py-1 text-xs rounded ${
-                        incomeItem.tipo === 'salario' ? 'bg-primary/10 text-primary' :
-                        incomeItem.tipo === 'adiantamento' ? 'bg-warning/10 text-warning' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {incomeItem.tipo === 'salario' ? 'Salário' :
-                         incomeItem.tipo === 'adiantamento' ? 'Adiantamento' :
-                         'Outro'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 mt-1">
-                      <span className="text-lg font-bold text-success">
-                        {formatCurrency(incomeItem.valor)}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        Recebe dia {incomeItem.dia_recebimento}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openDialog(incomeItem)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(incomeItem)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                      </td>
+                      <td className="py-3 px-6 text-center">
+                        <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          Dia {incomeItem.dia_recebimento}
+                        </span>
+                      </td>
+                      <td className="py-3 px-6 text-right">
+                        <span className="text-sm font-semibold text-success">
+                          {formatCurrency(incomeItem.valor)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-6 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          incomeItem.ativo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {incomeItem.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-6 text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(incomeItem)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(incomeItem)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

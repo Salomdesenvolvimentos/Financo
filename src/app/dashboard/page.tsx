@@ -15,8 +15,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   getFinancialSummary,
   getCategoryExpenses,
@@ -36,7 +34,6 @@ import type {
   ForecastAlert,
 } from '@/types';
 import { formatCurrency, getMonthName } from '@/lib/utils';
-import { AIChatBot } from '@/components/ai-chatbot';
 import {
   TrendingUp,
   TrendingDown,
@@ -44,7 +41,6 @@ import {
   AlertCircle,
   Calendar,
   Loader2,
-  CreditCard,
 } from 'lucide-react';
 import {
   LineChart,
@@ -282,30 +278,6 @@ export default function DashboardPage() {
     );
   }
 
-  // Componente de ícone para cartões
-  const CardIcon = ({ type }: { type: string }) => {
-    switch (type) {
-      case 'nubank':
-        return (
-          <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-xs font-bold">NU</span>
-          </div>
-        );
-      case 'santander':
-        return (
-          <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-xs font-bold">S</span>
-          </div>
-        );
-      default:
-        return (
-          <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center">
-            <CreditCard className="h-4 w-4 text-white" />
-          </div>
-        );
-    }
-  };
-
   // Cores para os gráficos
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -471,301 +443,181 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Dashboard por Cartões */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumo por Cartões</CardTitle>
-          <CardDescription>
-            Movimentações por forma de pagamento em {viewMode === 'yearly' 
-              ? `${selectedMonth.getFullYear()}` 
-              : `${getMonthName(selectedMonth)} de ${selectedMonth.getFullYear()}`
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {cardData.length > 0 ? (
-              cardData.map((card, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <CardIcon type={card.type} />
-                    <div>
-                      <h3 className="font-medium">{card.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {card.count} transações
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p
-                      className={`font-semibold ${
-                        card.total >= 0 ? 'text-success' : 'text-danger'
-                      }`}
-                    >
-                      {formatCurrency(card.total)}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full text-center py-8 text-muted-foreground">
-                <CreditCard className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Nenhuma movimentação por cartão encontrada</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Score Financeiro Personalizado */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className={`flex items-center gap-2 ${
-                (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 
-                  ? 'text-danger' 
-                  : ''
+      {/* Saúde Financeira + Previsão lado a lado */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Saúde Financeira */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className={`text-base flex items-center gap-2 ${
+                (financialScore as any).status === 'crítico' ? 'text-danger' : ''
               }`}>
                 Saúde Financeira
                 {(financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 && (
-                  <AlertCircle className="h-5 w-5 animate-pulse" />
+                  <AlertCircle className="h-4 w-4 animate-pulse" />
                 )}
               </CardTitle>
-              <CardDescription className={`${
-                (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 
-                  ? 'text-danger font-medium' 
-                  : ''
-              }`}>
-                {financialScore.mensagem}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="threshold" className="text-sm">Meta de economia:</Label>
               <select
-                id="threshold"
                 value={healthThreshold}
                 onChange={(e) => setHealthThreshold(parseInt(e.target.value))}
-                className="px-2 py-1 border border-input bg-background text-foreground rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="px-2 py-1 border border-input bg-background text-foreground rounded text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
-                <option value={10}>10%</option>
-                <option value={20}>20%</option>
-                <option value={30}>30%</option>
-                <option value={40}>40%</option>
-                <option value={50}>50%</option>
+                <option value={10}>Meta 10%</option>
+                <option value={20}>Meta 20%</option>
+                <option value={30}>Meta 30%</option>
+                <option value={40}>Meta 40%</option>
+                <option value={50}>Meta 50%</option>
               </select>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* Visual Circular */}
-            <div className="flex items-center justify-center">
-              <div className="relative">
-                <div className="w-32 h-32 rounded-full border-8 border-muted flex items-center justify-center">
-                  <div 
-                    className={`absolute inset-0 rounded-full border-8 transition-all ${
+            <CardDescription className={`${
+              (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0
+                ? 'text-danger font-medium'
+                : ''
+            }`}>
+              {financialScore.mensagem}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="relative w-20 h-20 flex-shrink-0">
+                <div className="w-20 h-20 rounded-full border-6 border-muted flex items-center justify-center">
+                  <div
+                    className={`absolute inset-0 rounded-full border-6 transition-all ${
                       (financialScore as any).status === 'excelente' ? 'border-success border-t-transparent border-r-transparent' :
                       (financialScore as any).status === 'bom' ? 'border-primary border-t-transparent border-r-transparent' :
                       (financialScore as any).status === 'alerta' ? 'border-warning border-t-transparent border-r-transparent' :
                       'border-danger border-t-transparent border-r-transparent animate-pulse'
                     }`}
-                    style={{
-                      transform: `rotate(${(financialScore.score / 100) * 360 - 90}deg)`,
-                    }}
+                    style={{ transform: `rotate(${(financialScore.score / 100) * 360 - 90}deg)` }}
                   />
                   <div className="relative z-10 text-center">
-                    <div className={`text-2xl font-bold ${
-                      (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 
-                        ? 'text-danger animate-pulse' 
-                        : ''
-                    }`}>
-                      {financialScore.score}
-                    </div>
-                    <div className="text-xs text-muted-foreground">pontos</div>
+                    <div className={`text-xl font-bold ${
+                      (financialScore as any).status === 'crítico' ? 'text-danger' : ''
+                    }`}>{financialScore.score}</div>
+                    <div className="text-[10px] text-muted-foreground">pts</div>
                   </div>
                 </div>
-                {/* Indicador de criticidade extra */}
-                {(financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 && (
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-danger rounded-full flex items-center justify-center animate-bounce">
-                    <AlertCircle className="h-4 w-4 text-white" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className={`font-medium capitalize ${
+                    (financialScore as any).status === 'excelente' ? 'text-success' :
+                    (financialScore as any).status === 'bom' ? 'text-primary' :
+                    (financialScore as any).status === 'alerta' ? 'text-warning' :
+                    'text-danger'
+                  }`}>{(financialScore as any).status}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Economia</span>
+                  <span className="font-medium">{(financialScore as any).percentualEconomia?.toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Meta</span>
+                  <span className="font-medium">{healthThreshold}%</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        (financialScore as any).status === 'excelente' ? 'bg-success' :
+                        (financialScore as any).status === 'bom' ? 'bg-primary' :
+                        (financialScore as any).status === 'alerta' ? 'bg-warning' :
+                        'bg-danger'
+                      }`}
+                      style={{ width: `${Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100)}%` }}
+                    />
                   </div>
-                )}
+                  <p className="text-xs text-right text-muted-foreground">
+                    {Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100).toFixed(0)}% da meta
+                  </p>
+                </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Status e Métricas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className={`text-center p-4 border rounded-lg ${
-                (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 
-                  ? 'border-danger bg-danger/10 animate-pulse' 
-                  : ''
-              }`}>
-                <div className={`text-lg font-semibold ${
-                  (financialScore as any).status === 'excelente' ? 'text-success' :
-                  (financialScore as any).status === 'bom' ? 'text-primary' :
-                  (financialScore as any).status === 'alerta' ? 'text-warning' :
-                  'text-danger'
-                }`}>
-                  {(financialScore as any).status.charAt(0).toUpperCase() + (financialScore as any).status.slice(1)}
-                </div>
-                <div className="text-sm text-muted-foreground">Status</div>
-                {(financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 && (
-                  <div className="mt-2 text-xs text-danger font-medium">
-                    ⚠️ Economia ZERO
-                  </div>
-                )}
-              </div>
-              
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-lg font-semibold">
-                  {(financialScore as any).percentualEconomia?.toFixed(1)}%
-                </div>
-                <div className="text-sm text-muted-foreground">Economia Atual</div>
-              </div>
-              
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-lg font-semibold">
-                  {healthThreshold}%
-                </div>
-                <div className="text-sm text-muted-foreground">Sua Meta</div>
-              </div>
-            </div>
-
-            {/* Indicadores */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Progresso para meta</span>
-                <span className="font-medium">
-                  {Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full transition-all ${
-                    (financialScore as any).status === 'excelente' ? 'bg-success' :
-                    (financialScore as any).status === 'bom' ? 'bg-primary' :
-                    (financialScore as any).status === 'alerta' ? 'bg-warning' :
-                    'bg-danger'
-                  }`}
-                  style={{ width: `${Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Previsão Mensal */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className={`flex items-center gap-2 ${
+        {/* Previsão do Mês */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className={`text-base ${
                 monthlyForecast.status === 'critico' ? 'text-danger' :
-                monthlyForecast.status === 'alerta' ? 'text-warning' :
-                'text-success'
+                monthlyForecast.status === 'alerta' ? 'text-warning' : ''
               }`}>
                 Previsão do Mês
-                {monthlyForecast.status === 'critico' && (
-                  <AlertCircle className="h-5 w-5 animate-pulse" />
-                )}
               </CardTitle>
-              <CardDescription>
-                {monthlyForecast.mes_nome} de {monthlyForecast.ano} - {monthlyForecast.dias_restantes} dias restantes
-              </CardDescription>
-            </div>
-            <div className="text-right">
-              <div className={`text-2xl font-bold ${
+              <div className={`text-xl font-bold ${
                 monthlyForecast.saldo_previsto_final >= 0 ? 'text-success' : 'text-danger'
               }`}>
                 {formatCurrency(monthlyForecast.saldo_previsto_final)}
               </div>
-              <div className="text-sm text-muted-foreground">Saldo previsto</div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Alertas */}
-            {forecastAlerts.length > 0 && (
-              <div className="space-y-2">
-                {forecastAlerts.slice(0, 3).map((alert, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg border ${
-                      alert.nivel === 'critico' ? 'border-danger bg-danger/10 text-danger' :
-                      alert.nivel === 'alerta' ? 'border-warning bg-warning/10 text-warning' :
-                      'border-primary bg-primary/10 text-primary'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <span className="text-sm">{alert.mensagem}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Resumo Financeiro */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 border rounded-lg">
-                <div className="text-lg font-semibold text-success">
+            <CardDescription>
+              {monthlyForecast.mes_nome} {monthlyForecast.ano} · {monthlyForecast.dias_restantes} dias restantes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 border rounded-lg text-center">
+                <div className="text-base font-semibold text-success">
                   {formatCurrency(monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas)}
                 </div>
-                <div className="text-xs text-muted-foreground">Total Receitas</div>
+                <div className="text-xs text-muted-foreground">Receitas</div>
               </div>
-              <div className="text-center p-3 border rounded-lg">
-                <div className="text-lg font-semibold text-danger">
+              <div className="p-3 border rounded-lg text-center">
+                <div className="text-base font-semibold text-danger">
                   {formatCurrency(monthlyForecast.despesas_realizadas + monthlyForecast.despesas_previstas)}
                 </div>
-                <div className="text-xs text-muted-foreground">Total Despesas</div>
+                <div className="text-xs text-muted-foreground">Despesas</div>
               </div>
             </div>
-
-            {/* Progresso do Mês */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Progresso do mês</span>
-                <span className="font-medium">
-                  {Math.round(((30 - monthlyForecast.dias_restantes) / 30) * 100)}%
-                </span>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Progresso do mês</span>
+                <span>{Math.round(((30 - monthlyForecast.dias_restantes) / 30) * 100)}%</span>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all ${
                     monthlyForecast.status === 'critico' ? 'bg-danger' :
-                    monthlyForecast.status === 'alerta' ? 'bg-warning' :
-                    'bg-success'
+                    monthlyForecast.status === 'alerta' ? 'bg-warning' : 'bg-success'
                   }`}
-                  style={{ width: `${((30 - monthlyForecast.dias_restantes) / 30) * 100}%` }}
+                  style={{ width: `${Math.min(100, ((30 - monthlyForecast.dias_restantes) / 30) * 100)}%` }}
                 />
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            {forecastAlerts.slice(0, 2).map((alert, index) => (
+              <div
+                key={index}
+                className={`p-2 rounded-lg border text-xs flex items-start gap-2 ${
+                  alert.nivel === 'critico' ? 'border-danger/30 bg-danger/10 text-danger' :
+                  alert.nivel === 'alerta' ? 'border-warning/30 bg-warning/10 text-warning' :
+                  'border-primary/30 bg-primary/10 text-primary'
+                }`}
+              >
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                <span>{alert.mensagem}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Gráficos */}
-      <Tabs defaultValue="categories" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="categories">Por Categoria</TabsTrigger>
-          <TabsTrigger value="weekdays">Por Dia do Mês</TabsTrigger>
-          <TabsTrigger value="trend">Tendência</TabsTrigger>
-        </TabsList>
-
-        {/* Gráfico: Gastos por Categoria */}
-        <TabsContent value="categories" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Despesas por Categoria</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+      {/* Gráficos: Categorias + Tendência lado a lado */}
+      <div className="grid gap-4 md:grid-cols-5">
+        {/* Pie: Despesas por categoria */}
+        <Card className="md:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Despesas por Categoria</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {categoryExpenses.length === 0 ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
+                Sem dados para o período
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
                     data={categoryExpenses}
@@ -773,90 +625,73 @@ export default function DashboardPage() {
                     nameKey="categoria_nome"
                     cx="50%"
                     cy="50%"
-                    outerRadius={100}
-                    label={(entry) => `${entry.categoria_nome}: ${entry.percentual}%`}
+                    outerRadius={80}
+                    label={(entry) => `${entry.percentual}%`}
+                    labelLine={false}
                   >
                     {categoryExpenses.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={entry.categoria_cor || COLORS[index % COLORS.length]}
-                      />
+                      <Cell key={`cell-${index}`} fill={entry.categoria_cor || COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                  />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Gráfico: Gastos por Dia do Mês */}
-        <TabsContent value="weekdays" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gastos por Dia do Mês</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dailyExpenses}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="dia" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                  />
-                  <Bar dataKey="total" fill="#3B82F6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Gráfico: Tendência Mensal */}
-        <TabsContent value="trend" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tendência dos Últimos 6 Meses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+        {/* Line: Tendência 6 meses */}
+        <Card className="md:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Tendência — Últimos 6 Meses</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {monthlyTrend.length === 0 ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
+                Sem dados suficientes
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={monthlyTrend}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="mes" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                  />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="receita"
-                    stroke="#10B981"
-                    name="Receita"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="despesa"
-                    stroke="#EF4444"
-                    name="Despesa"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="saldo"
-                    stroke="#3B82F6"
-                    name="Saldo"
-                  />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
+                  <Line type="monotone" dataKey="receita" stroke="#10B981" name="Receita" dot={false} strokeWidth={2} />
+                  <Line type="monotone" dataKey="despesa" stroke="#EF4444" name="Despesa" dot={false} strokeWidth={2} />
+                  <Line type="monotone" dataKey="saldo" stroke="#3B82F6" name="Saldo" dot={false} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      {/* ChatBot IA */}
-      <AIChatBot />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bar: Gastos diários */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Gastos por Dia do Mês</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {dailyExpenses.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+              Sem dados para o período
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={dailyExpenses}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Bar dataKey="total" fill="#3B82F6" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

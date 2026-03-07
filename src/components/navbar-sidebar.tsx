@@ -28,6 +28,7 @@ import {
   CreditCard,
   User,
   ChevronDown,
+  TrendingUp,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -101,6 +102,11 @@ export function Sidebar({
       icon: DollarSign,
       label: "Rendas Fixas",
       href: "/dashboard/fixed-income",
+    },
+    {
+      icon: TrendingUp,
+      label: "Investimentos",
+      href: "/dashboard/investments",
     },
     {
       icon: Upload,
