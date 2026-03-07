@@ -34,47 +34,38 @@ export function useAuth() {
       setUser(localUser);
       setLoading(false);
     } else {
-      // Modo Supabase: buscar dados completos do usuário
-      const fetchUser = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          // Buscar dados do perfil na tabela public.users
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (userData && !error) {
-            setUser(userData as User);
-          } else {
-            console.error('Erro ao buscar perfil:', error);
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
-        setLoading(false);
-      };
-
-      fetchUser();
-
+      // Modo Supabase: usa onAuthStateChange que dispara imediatamente com a sessão atual
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session?.user) {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+        try {
+          if (session?.user) {
+            const { data: userData, error } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
 
-          setUser(userData as User || null);
-        } else {
+            if (userData && !error) {
+              setUser(userData as User);
+            } else {
+              // Fallback: usar dados básicos da sessão se tabela users falhar
+              console.error('Erro ao buscar perfil:', error);
+              setUser({
+                id: session.user.id,
+                email: session.user.email || '',
+                nome: session.user.user_metadata?.nome || session.user.email || 'Usuário',
+              } as User);
+            }
+          } else {
+            setUser(null);
+          }
+        } catch (err) {
+          console.error('Erro inesperado no auth:', err);
           setUser(null);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       });
 
       return () => subscription.unsubscribe();
