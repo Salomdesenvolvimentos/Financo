@@ -5,8 +5,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import type { PluggyConnect as PluggyConnectType } from 'react-pluggy-connect';
+
+const PluggyConnect = dynamic(
+  () => import('react-pluggy-connect').then((mod: any) => mod.PluggyConnect),
+  { ssr: false }
+) as typeof PluggyConnectType;
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -49,6 +56,8 @@ export default function ImportPage() {
   });
   const [pluggyDateTo, setPluggyDateTo] = useState(() => new Date().toISOString().split('T')[0]);
   const [pluggyProgress, setPluggyProgress] = useState('');
+  const [pluggyToken, setPluggyToken] = useState<string | undefined>();
+  const [pluggyOpen, setPluggyOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -64,50 +73,39 @@ export default function ImportPage() {
       const res = await fetch('/api/pluggy/token', { method: 'POST' });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
-      // Abre o widget Pluggy Connect numa janela popup
-      const connectUrl = `https://connect.pluggy.ai?connectToken=${data.accessToken}`;
-      const popup = window.open(connectUrl, 'pluggy-connect', 'width=480,height=700,scrollbars=yes,resizable=yes');
-      if (!popup) throw new Error('O navegador bloqueou o popup. Permita popups para este site e tente novamente.');
-
-      // Ouve a mensagem de sucesso enviada pelo widget
-      const handleMessage = async (event: MessageEvent) => {
-        if (!event.data || typeof event.data !== 'object') return;
-        const { type, itemId } = event.data;
-        if (type === 'pluggy:connect:success' || type === 'pluggy-connect:success') {
-          window.removeEventListener('message', handleMessage);
-          popup?.close();
-          const accRes = await fetch(`/api/pluggy/accounts?itemId=${itemId}`);
-          const accData = await accRes.json();
-          const accounts = accData.results ?? accData.accounts ?? [];
-          setPluggyAccounts(accounts);
-          setSelectedAccounts(accounts.map((a: any) => a.id));
-          setPluggyStep('accounts');
-        } else if (type === 'pluggy:connect:error' || type === 'pluggy-connect:error') {
-          window.removeEventListener('message', handleMessage);
-          popup?.close();
-          toast({ title: 'Erro ao conectar banco', description: event.data.message ?? 'Tente novamente', variant: 'destructive' });
-          setPluggyStep('idle');
-        } else if (type === 'pluggy:connect:close' || type === 'pluggy-connect:close') {
-          window.removeEventListener('message', handleMessage);
-          setPluggyStep('idle');
-        }
-      };
-      window.addEventListener('message', handleMessage);
-
-      // Fallback: detecta se o popup foi fechado manualmente
-      const pollClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(pollClosed);
-          window.removeEventListener('message', handleMessage);
-          if (pluggyStep === 'connecting') setPluggyStep('idle');
-        }
-      }, 500);
+      setPluggyToken(data.accessToken);
+      setPluggyOpen(true);
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
       setPluggyStep('idle');
     }
   };
+
+  const onPluggySuccess = useCallback(async ({ item }: any) => {
+    setPluggyOpen(false);
+    try {
+      const accRes = await fetch(`/api/pluggy/accounts?itemId=${item.id}`);
+      const accData = await accRes.json();
+      const accounts = accData.results ?? accData.accounts ?? [];
+      setPluggyAccounts(accounts);
+      setSelectedAccounts(accounts.map((a: any) => a.id));
+      setPluggyStep('accounts');
+    } catch {
+      toast({ title: 'Erro ao buscar contas', variant: 'destructive' });
+      setPluggyStep('idle');
+    }
+  }, [toast]);
+
+  const onPluggyError = useCallback((err: any) => {
+    setPluggyOpen(false);
+    toast({ title: 'Erro ao conectar banco', description: err?.message ?? 'Tente novamente', variant: 'destructive' });
+    setPluggyStep('idle');
+  }, [toast]);
+
+  const onPluggyClose = useCallback(() => {
+    setPluggyOpen(false);
+    if (pluggyStep === 'connecting') setPluggyStep('idle');
+  }, [pluggyStep]);
 
   const handlePluggyImport = async () => {
     if (!user || selectedAccounts.length === 0) return;
@@ -463,6 +461,15 @@ export default function ImportPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {pluggyOpen && pluggyToken && (
+        <PluggyConnect
+          connectToken={pluggyToken}
+          includeSandbox={false}
+          onSuccess={onPluggySuccess}
+          onError={onPluggyError}
+          onClose={onPluggyClose}
+        />
+      )}
       <div>
         <h1 className="text-3xl font-bold">Importar Extrato</h1>
         <p className="text-muted-foreground">
