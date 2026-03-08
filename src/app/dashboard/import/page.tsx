@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Script from 'next/script';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -59,15 +60,7 @@ export default function ImportPage() {
   }, [user]);
 
   // Carrega o script do Pluggy Connect Widget
-  useEffect(() => {
-    const id = 'pluggy-connect-script';
-    if (document.getElementById(id)) return;
-    const script = document.createElement('script');
-    script.id = id;
-    script.src = 'https://cdn.pluggy.ai/pluggy-connect/v2/pluggy-connect.js';
-    script.async = true;
-    document.body.appendChild(script);
-  }, []);
+  const [pluggyScriptReady, setPluggyScriptReady] = useState(false);
 
   const handlePluggyConnect = async () => {
     setPluggyStep('connecting');
@@ -77,7 +70,7 @@ export default function ImportPage() {
       if (data.error) throw new Error(data.error);
 
       const PluggyConnect = (window as any).PluggyConnect;
-      if (!PluggyConnect) throw new Error('Widget do Pluggy ainda carregando. Aguarde e tente novamente.');
+      if (!PluggyConnect) throw new Error('Widget do Pluggy não está disponível. Recarregue a página e tente novamente.');
 
       const widget = new PluggyConnect({
         connectToken: data.accessToken,
@@ -809,6 +802,12 @@ export default function ImportPage() {
         </TabsContent>
 
         <TabsContent value="pluggy" className="space-y-6">
+          <Script
+            src="https://cdn.pluggy.ai/pluggy-connect/v2.1.6/pluggy-connect.js"
+            strategy="lazyOnload"
+            onLoad={() => setPluggyScriptReady(true)}
+            onError={() => toast({ title: 'Erro ao carregar widget Pluggy', description: 'Verifique sua conexão e recarregue a página', variant: 'destructive' })}
+          />
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -827,9 +826,9 @@ export default function ImportPage() {
                     <p>✅ Mais de 100 bancos brasileiros suportados (Nubank, Itaú, Bradesco, XP, Inter...)</p>
                     <p>✅ As credenciais do banco <strong>nunca</strong> ficam armazenadas aqui</p>
                   </div>
-                  <Button onClick={handlePluggyConnect} className="w-full gap-2" size="lg">
-                    <Building2 className="h-4 w-4" />
-                    Conectar meu banco
+                  <Button onClick={handlePluggyConnect} className="w-full gap-2" size="lg" disabled={!pluggyScriptReady}>
+                    {pluggyScriptReady ? <Building2 className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
+                    {pluggyScriptReady ? 'Conectar meu banco' : 'Carregando widget...'}
                   </Button>
                 </div>
               )}
