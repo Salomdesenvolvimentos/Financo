@@ -7,7 +7,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Script from 'next/script';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -59,9 +58,6 @@ export default function ImportPage() {
     }
   }, [user]);
 
-  // Carrega o script do Pluggy Connect Widget
-  const [pluggyScriptReady, setPluggyScriptReady] = useState(false);
-
   const handlePluggyConnect = async () => {
     setPluggyStep('connecting');
     try {
@@ -69,26 +65,44 @@ export default function ImportPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      const PluggyConnect = (window as any).PluggyConnect;
-      if (!PluggyConnect) throw new Error('Widget do Pluggy não está disponível. Recarregue a página e tente novamente.');
+      // Abre o widget Pluggy Connect numa janela popup
+      const connectUrl = `https://connect.pluggy.ai?connectToken=${data.accessToken}`;
+      const popup = window.open(connectUrl, 'pluggy-connect', 'width=480,height=700,scrollbars=yes,resizable=yes');
+      if (!popup) throw new Error('O navegador bloqueou o popup. Permita popups para este site e tente novamente.');
 
-      const widget = new PluggyConnect({
-        connectToken: data.accessToken,
-        onSuccess: async ({ item }: any) => {
-          const accRes = await fetch(`/api/pluggy/accounts?itemId=${item.id}`);
+      // Ouve a mensagem de sucesso enviada pelo widget
+      const handleMessage = async (event: MessageEvent) => {
+        if (!event.data || typeof event.data !== 'object') return;
+        const { type, itemId } = event.data;
+        if (type === 'pluggy:connect:success' || type === 'pluggy-connect:success') {
+          window.removeEventListener('message', handleMessage);
+          popup?.close();
+          const accRes = await fetch(`/api/pluggy/accounts?itemId=${itemId}`);
           const accData = await accRes.json();
           const accounts = accData.results ?? accData.accounts ?? [];
           setPluggyAccounts(accounts);
           setSelectedAccounts(accounts.map((a: any) => a.id));
           setPluggyStep('accounts');
-        },
-        onError: (err: any) => {
-          toast({ title: 'Erro ao conectar banco', description: err?.message ?? 'Tente novamente', variant: 'destructive' });
+        } else if (type === 'pluggy:connect:error' || type === 'pluggy-connect:error') {
+          window.removeEventListener('message', handleMessage);
+          popup?.close();
+          toast({ title: 'Erro ao conectar banco', description: event.data.message ?? 'Tente novamente', variant: 'destructive' });
           setPluggyStep('idle');
-        },
-        onClose: () => { if (pluggyStep === 'connecting') setPluggyStep('idle'); },
-      });
-      widget.init();
+        } else if (type === 'pluggy:connect:close' || type === 'pluggy-connect:close') {
+          window.removeEventListener('message', handleMessage);
+          setPluggyStep('idle');
+        }
+      };
+      window.addEventListener('message', handleMessage);
+
+      // Fallback: detecta se o popup foi fechado manualmente
+      const pollClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(pollClosed);
+          window.removeEventListener('message', handleMessage);
+          if (pluggyStep === 'connecting') setPluggyStep('idle');
+        }
+      }, 500);
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
       setPluggyStep('idle');
@@ -802,12 +816,6 @@ export default function ImportPage() {
         </TabsContent>
 
         <TabsContent value="pluggy" className="space-y-6">
-          <Script
-            src="https://cdn.pluggy.ai/pluggy-connect/v2.1.6/pluggy-connect.js"
-            strategy="lazyOnload"
-            onLoad={() => setPluggyScriptReady(true)}
-            onError={() => toast({ title: 'Erro ao carregar widget Pluggy', description: 'Verifique sua conexão e recarregue a página', variant: 'destructive' })}
-          />
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -826,9 +834,9 @@ export default function ImportPage() {
                     <p>✅ Mais de 100 bancos brasileiros suportados (Nubank, Itaú, Bradesco, XP, Inter...)</p>
                     <p>✅ As credenciais do banco <strong>nunca</strong> ficam armazenadas aqui</p>
                   </div>
-                  <Button onClick={handlePluggyConnect} className="w-full gap-2" size="lg" disabled={!pluggyScriptReady}>
-                    {pluggyScriptReady ? <Building2 className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
-                    {pluggyScriptReady ? 'Conectar meu banco' : 'Carregando widget...'}
+                  <Button onClick={handlePluggyConnect} className="w-full gap-2" size="lg">
+                    <Building2 className="h-4 w-4" />
+                    Conectar meu banco
                   </Button>
                 </div>
               )}
