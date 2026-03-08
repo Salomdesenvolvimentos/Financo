@@ -49,7 +49,8 @@ export default function ImportPage() {
   const [categories, setCategories] = useState<Category[]>([]);
 
   // Pluggy state
-  const [pluggyStep, setPluggyStep] = useState<'idle' | 'connecting' | 'accounts' | 'importing'>('idle');
+  const [pluggyStep, setPluggyStep] = useState<'idle' | 'connecting' | 'syncing' | 'accounts' | 'importing'>('idle');
+  const [pluggySyncMsg, setPluggySyncMsg] = useState('');
   const [pluggyAccounts, setPluggyAccounts] = useState<any[]>([]);
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [pluggyDateFrom, setPluggyDateFrom] = useState(() => {
@@ -91,26 +92,61 @@ export default function ImportPage() {
     }
   };
 
+  const fetchAccounts = useCallback(async (itemId: string) => {
+    const accRes = await fetch(`/api/pluggy/accounts?itemId=${itemId}`);
+    const accData = await accRes.json();
+    const accounts = accData.results ?? accData.accounts ?? [];
+    setPluggyAccounts(accounts);
+    setSelectedAccounts(accounts.map((a: any) => a.id));
+    setPluggyStep('accounts');
+  }, []);
+
+  const waitForItemAndFetch = useCallback(async (itemId: string) => {
+    setPluggyStep('syncing');
+    const MAX = 20; // 60 seconds max (20 * 3s)
+    for (let i = 0; i < MAX; i++) {
+      try {
+        const res = await fetch(`/api/pluggy/item?itemId=${itemId}`);
+        const data = await res.json();
+        const status: string = data.status ?? '';
+        if (status === 'UPDATED' || status === 'PARTIAL_SUCCESS') {
+          setPluggySyncMsg('');
+          await fetchAccounts(itemId);
+          return;
+        }
+        if (status === 'LOGIN_ERROR' || status === 'OUTDATED') {
+          toast({ title: 'Erro de autenticação no banco', description: 'Tente conectar novamente.', variant: 'destructive' });
+          setPluggyStep('idle');
+          return;
+        }
+        // UPDATING or unknown — keep waiting
+        const secs = (MAX - i) * 3;
+        setPluggySyncMsg(`Sincronizando dados do banco... (${secs}s)`);
+      } catch {
+        // network hiccup, keep trying
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    // Timeout — try to fetch anyway (may have partial data)
+    setPluggySyncMsg('');
+    try {
+      await fetchAccounts(itemId);
+    } catch {
+      toast({ title: 'Tempo esgotado', description: 'Não foi possível buscar as contas. Tente novamente.', variant: 'destructive' });
+      setPluggyStep('idle');
+    }
+  }, [fetchAccounts, toast]);
+
   const onPluggySuccess = useCallback(async ({ item }: any) => {
     setPluggyOpen(false);
     // Persist connection
-    const itemName = item.connector?.name ?? 'Banco';
+    const itemName = item.connector?.name ?? item.institution?.name ?? 'Banco';
     localStorage.setItem('pluggy_item_id', item.id);
     localStorage.setItem('pluggy_item_name', itemName);
     setConnectedItemId(item.id);
     setConnectedItemName(itemName);
-    try {
-      const accRes = await fetch(`/api/pluggy/accounts?itemId=${item.id}`);
-      const accData = await accRes.json();
-      const accounts = accData.results ?? accData.accounts ?? [];
-      setPluggyAccounts(accounts);
-      setSelectedAccounts(accounts.map((a: any) => a.id));
-      setPluggyStep('accounts');
-    } catch {
-      toast({ title: 'Erro ao buscar contas', variant: 'destructive' });
-      setPluggyStep('idle');
-    }
-  }, [toast]);
+    await waitForItemAndFetch(item.id);
+  }, [waitForItemAndFetch]);
 
   const onPluggyError = useCallback((err: any) => {
     setPluggyOpen(false);
@@ -141,14 +177,8 @@ export default function ImportPage() {
 
   const handlePluggyReload = async () => {
     if (!connectedItemId) return;
-    setPluggyStep('connecting');
     try {
-      const accRes = await fetch(`/api/pluggy/accounts?itemId=${connectedItemId}`);
-      const accData = await accRes.json();
-      const accounts = accData.results ?? accData.accounts ?? [];
-      setPluggyAccounts(accounts);
-      setSelectedAccounts(accounts.map((a: any) => a.id));
-      setPluggyStep('accounts');
+      await fetchAccounts(connectedItemId);
     } catch {
       toast({ title: 'Erro ao buscar contas', variant: 'destructive' });
       setPluggyStep('idle');
@@ -980,10 +1010,30 @@ export default function ImportPage() {
                 </div>
               )}
 
+              {pluggyStep === 'syncing' && (
+                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="font-semibold">Sincronizando com o banco...</p>
+                  <p className="text-sm text-muted-foreground text-center max-w-xs">
+                    {pluggySyncMsg || 'Aguarde enquanto o Pluggy busca seus dados bancários. Isso pode levar até 1 minuto.'}
+                  </p>
+                </div>
+              )}
+
               {pluggyStep === 'accounts' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="font-semibold mb-3">Contas encontradas</h3>
+                    <h3 className="font-semibold mb-3">Contas encontradas ({pluggyAccounts.length})</h3>
+                    {pluggyAccounts.length === 0 && (
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">Nenhuma conta encontrada</p>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">O banco pode estar demorando para sincronizar. Tente aguardar e importar novamente.</p>
+                        <Button size="sm" className="mt-3 gap-2" onClick={() => waitForItemAndFetch(connectedItemId!)}>
+                          <RefreshCw className="h-3 w-3" />
+                          Tentar novamente
+                        </Button>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       {pluggyAccounts.map((acc) => (
                         <label key={acc.id} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted cursor-pointer">
