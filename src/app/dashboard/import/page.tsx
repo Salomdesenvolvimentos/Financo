@@ -27,9 +27,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus, Building2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus, Building2, Unlink, RefreshCw, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { createTransaction } from '@/services/transactions.local';
+import { createInvestment } from '@/services/investments.local';
+import type { InvestmentType } from '@/types';
 import { getCategories } from '@/services/categories.local';
 import { parsePDF, validateTransactions } from '@/services/pdf-parser';
 import { suggestCategory, saveLearnedRule } from '@/services/categorization';
@@ -58,6 +60,9 @@ export default function ImportPage() {
   const [pluggyProgress, setPluggyProgress] = useState('');
   const [pluggyToken, setPluggyToken] = useState<string | undefined>();
   const [pluggyOpen, setPluggyOpen] = useState(false);
+  const [connectedItemId, setConnectedItemId] = useState<string | null>(null);
+  const [connectedItemName, setConnectedItemName] = useState('');
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -65,6 +70,11 @@ export default function ImportPage() {
         if (data) setCategories(data);
       });
     }
+    // Restore persisted Pluggy connection
+    const savedId = localStorage.getItem('pluggy_item_id');
+    const savedName = localStorage.getItem('pluggy_item_name');
+    if (savedId) setConnectedItemId(savedId);
+    if (savedName) setConnectedItemName(savedName);
   }, [user]);
 
   const handlePluggyConnect = async () => {
@@ -83,6 +93,12 @@ export default function ImportPage() {
 
   const onPluggySuccess = useCallback(async ({ item }: any) => {
     setPluggyOpen(false);
+    // Persist connection
+    const itemName = item.connector?.name ?? 'Banco';
+    localStorage.setItem('pluggy_item_id', item.id);
+    localStorage.setItem('pluggy_item_name', itemName);
+    setConnectedItemId(item.id);
+    setConnectedItemName(itemName);
     try {
       const accRes = await fetch(`/api/pluggy/accounts?itemId=${item.id}`);
       const accData = await accRes.json();
@@ -106,6 +122,52 @@ export default function ImportPage() {
     setPluggyOpen(false);
     if (pluggyStep === 'connecting') setPluggyStep('idle');
   }, [pluggyStep]);
+
+  const handlePluggyDisconnect = async () => {
+    if (!connectedItemId) return;
+    setDisconnecting(true);
+    try {
+      await fetch(`/api/pluggy/item?itemId=${connectedItemId}`, { method: 'DELETE' });
+    } catch {}
+    localStorage.removeItem('pluggy_item_id');
+    localStorage.removeItem('pluggy_item_name');
+    setConnectedItemId(null);
+    setConnectedItemName('');
+    setPluggyAccounts([]);
+    setPluggyStep('idle');
+    setDisconnecting(false);
+    toast({ title: 'Banco desconectado', description: 'Conexão removida com sucesso.' });
+  };
+
+  const handlePluggyReload = async () => {
+    if (!connectedItemId) return;
+    setPluggyStep('connecting');
+    try {
+      const accRes = await fetch(`/api/pluggy/accounts?itemId=${connectedItemId}`);
+      const accData = await accRes.json();
+      const accounts = accData.results ?? accData.accounts ?? [];
+      setPluggyAccounts(accounts);
+      setSelectedAccounts(accounts.map((a: any) => a.id));
+      setPluggyStep('accounts');
+    } catch {
+      toast({ title: 'Erro ao buscar contas', variant: 'destructive' });
+      setPluggyStep('idle');
+    }
+  };
+
+  function mapPluggyInvestmentType(type: string, subtype: string, name: string): InvestmentType {
+    const t = (type ?? '').toUpperCase();
+    const s = (subtype ?? '').toUpperCase();
+    const n = (name ?? '').toLowerCase();
+    if (t === 'EQUITY' || t === 'ETF') return 'acoes';
+    if (n.includes('tesouro') || s.includes('TESOURO')) return 'tesouro_direto';
+    if (s.includes('LCI') || s.includes('LCA') || n.includes('lci') || n.includes('lca')) return 'lci_lca';
+    if (s.includes('CDB') || n.includes('cdb')) return 'cdb';
+    if (t === 'REAL_ESTATE' || s.includes('FII') || n.includes('fii')) return 'fii';
+    if (n.includes('poupan')) return 'poupanca';
+    if (t === 'FIXED_INCOME') return 'cdb';
+    return 'outro';
+  }
 
   const handlePluggyImport = async () => {
     if (!user || selectedAccounts.length === 0) return;
@@ -138,7 +200,36 @@ export default function ImportPage() {
           total++;
         }
       }
-      toast({ title: `${total} transações importadas!`, description: 'Banco conectado com sucesso!' });
+
+      // Import investments from connected item
+      let invCount = 0;
+      if (connectedItemId) {
+        setPluggyProgress('Buscando investimentos...');
+        try {
+          const invRes = await fetch(`/api/pluggy/investments?itemId=${connectedItemId}`);
+          const invData = await invRes.json();
+          const invs: any[] = invData.results ?? invData.investments ?? [];
+          for (const inv of invs) {
+            const valor = Number(inv.value ?? inv.amount ?? 0);
+            if (!valor) continue;
+            await createInvestment(user.id, {
+              nome: (inv.name ?? 'Investimento').substring(0, 100),
+              tipo: mapPluggyInvestmentType(inv.type, inv.subtype, inv.name),
+              instituicao: inv.institutionName ?? connectedItemName,
+              valor_investido: Number(inv.amountOriginal ?? valor),
+              valor_atual: valor,
+              data_inicio: inv.issueDate ? inv.issueDate.split('T')[0] : new Date().toISOString().split('T')[0],
+              vencimento: inv.dueDate ? inv.dueDate.split('T')[0] : undefined,
+              rentabilidade_anual: inv.lastTwelveMonthsRate ? Number(inv.lastTwelveMonthsRate) : undefined,
+              ativo: true,
+            });
+            invCount++;
+          }
+        } catch {}
+      }
+
+      const invMsg = invCount > 0 ? ` + ${invCount} investimento${invCount > 1 ? 's' : ''}` : '';
+      toast({ title: `${total} transações${invMsg} importadas!`, description: 'Banco sincronizado com sucesso!' });
       setPluggyStep('idle');
       setPluggyAccounts([]);
       setTimeout(() => router.push('/dashboard/transactions'), 1000);
@@ -836,15 +927,49 @@ export default function ImportPage() {
             <CardContent>
               {pluggyStep === 'idle' && (
                 <div className="space-y-6">
-                  <div className="p-4 bg-muted rounded-lg space-y-2 text-sm text-muted-foreground">
-                    <p>✅ Conecte sua conta bancária de forma segura</p>
-                    <p>✅ Mais de 100 bancos brasileiros suportados (Nubank, Itaú, Bradesco, XP, Inter...)</p>
-                    <p>✅ As credenciais do banco <strong>nunca</strong> ficam armazenadas aqui</p>
-                  </div>
-                  <Button onClick={handlePluggyConnect} className="w-full gap-2" size="lg">
-                    <Building2 className="h-4 w-4" />
-                    Conectar meu banco
-                  </Button>
+                  {connectedItemId ? (
+                    <>
+                      <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-green-800 dark:text-green-200">Banco conectado</p>
+                          <p className="text-sm text-green-700 dark:text-green-300">{connectedItemName}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePluggyDisconnect}
+                          disabled={disconnecting}
+                          className="gap-2 border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
+                        >
+                          {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+                          Desconectar
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Button onClick={handlePluggyReload} className="gap-2" variant="default">
+                          <RefreshCw className="h-4 w-4" />
+                          Importar transações
+                        </Button>
+                        <Button onClick={handlePluggyConnect} className="gap-2" variant="outline">
+                          <Building2 className="h-4 w-4" />
+                          Conectar outro banco
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 bg-muted rounded-lg space-y-2 text-sm text-muted-foreground">
+                        <p>✅ Conecte sua conta bancária de forma segura</p>
+                        <p>✅ Mais de 100 bancos brasileiros suportados (Nubank, Itaú, Bradesco, XP, Inter...)</p>
+                        <p>✅ As credenciais do banco <strong>nunca</strong> ficam armazenadas aqui</p>
+                      </div>
+                      <Button onClick={handlePluggyConnect} className="w-full gap-2" size="lg">
+                        <Building2 className="h-4 w-4" />
+                        Conectar meu banco
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
 
