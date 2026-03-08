@@ -50,6 +50,8 @@ import {
   Calendar,
   AlertCircle,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function FixedExpensesPage() {
@@ -68,6 +70,8 @@ export default function FixedExpensesPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Carregar dados
   useEffect(() => {
@@ -200,6 +204,8 @@ export default function FixedExpensesPage() {
 
   // Calcular total mensal
   const totalMonthly = expenses.reduce((sum, expense) => sum + expense.valor, 0);
+  const totalPages = Math.max(1, Math.ceil(expenses.length / rowsPerPage));
+  const paginated = expenses.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   if (loading) {
     return (
@@ -404,7 +410,7 @@ export default function FixedExpensesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {expenses.map((expense) => (
+                  {paginated.map((expense) => (
                     <tr key={expense.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="py-3 px-6">
                         <span className="text-sm font-medium">{expense.descricao}</span>
@@ -448,6 +454,52 @@ export default function FixedExpensesPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* Paginação */}
+          {expenses.length > 0 && (
+            <div className="flex items-center justify-between px-6 py-3 border-t">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Linhas por página:</span>
+                <Select
+                  value={rowsPerPage.toString()}
+                  onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}
+                >
+                  <SelectTrigger className="h-8 w-16 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">
+                  {(currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, expenses.length)} de {expenses.length}
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>

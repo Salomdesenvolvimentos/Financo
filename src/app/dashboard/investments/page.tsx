@@ -43,6 +43,8 @@ import {
   Percent,
   X,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const INVESTMENT_TYPE_LABELS: Record<InvestmentType, string> = {
@@ -89,6 +91,10 @@ export default function InvestmentsPage() {
   const [formData, setFormData] = useState<InvestmentFormData>(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [filterTipo, setFilterTipo] = useState<InvestmentType | 'todos'>('todos');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     if (!user) return;
@@ -159,12 +165,29 @@ export default function InvestmentsPage() {
   async function handleDelete(investment: Investment) {
     if (!confirm(`Remover "${investment.nome}"?`)) return;
     await deleteInvestment(investment.id);
+    setSelectedIds((prev) => { const n = new Set(prev); n.delete(investment.id); return n; });
     await loadInvestments();
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Excluir ${selectedIds.size} investimento${selectedIds.size > 1 ? 's' : ''}? Esta ação não pode ser desfeita.`)) return;
+    setBulkDeleting(true);
+    for (const id of selectedIds) {
+      await deleteInvestment(id);
+    }
+    setSelectedIds(new Set());
+    await loadInvestments();
+    setBulkDeleting(false);
   }
 
   const filtered = filterTipo === 'todos'
     ? investments
     : investments.filter((inv) => inv.tipo === filterTipo);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const paginated = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const allOnPageSelected = paginated.length > 0 && paginated.every((inv) => selectedIds.has(inv.id));
 
   const totalInvestido = investments.reduce((s, inv) => s + inv.valor_investido, 0);
   const totalAtual = investments.reduce((s, inv) => s + inv.valor_atual, 0);
@@ -377,17 +400,31 @@ export default function InvestmentsPage() {
               <CardTitle>Carteira</CardTitle>
               <CardDescription>{filtered.length} investimento{filtered.length !== 1 ? 's' : ''}</CardDescription>
             </div>
-            <Select value={filterTipo} onValueChange={(v) => setFilterTipo(v as InvestmentType | 'todos')}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Filtrar tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os tipos</SelectItem>
-                {(Object.keys(INVESTMENT_TYPE_LABELS) as InvestmentType[]).map((tipo) => (
-                  <SelectItem key={tipo} value={tipo}>{INVESTMENT_TYPE_LABELS[tipo]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="gap-2"
+                >
+                  {bulkDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Excluir {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
+                </Button>
+              )}
+              <Select value={filterTipo} onValueChange={(v) => { setFilterTipo(v as InvestmentType | 'todos'); setCurrentPage(1); }}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="Filtrar tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  {(Object.keys(INVESTMENT_TYPE_LABELS) as InvestmentType[]).map((tipo) => (
+                    <SelectItem key={tipo} value={tipo}>{INVESTMENT_TYPE_LABELS[tipo]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -402,6 +439,24 @@ export default function InvestmentsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b bg-muted/40">
+                    <th className="py-3 px-6 w-10">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded"
+                        checked={allOnPageSelected}
+                        onChange={(e) => {
+                          setSelectedIds((prev) => {
+                            const n = new Set(prev);
+                            if (e.target.checked) {
+                              paginated.forEach((inv) => n.add(inv.id));
+                            } else {
+                              paginated.forEach((inv) => n.delete(inv.id));
+                            }
+                            return n;
+                          });
+                        }}
+                      />
+                    </th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Nome</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Tipo</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Instituição</th>
@@ -414,11 +469,25 @@ export default function InvestmentsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((inv) => {
+                  {paginated.map((inv) => {
                     const diff = inv.valor_atual - inv.valor_investido;
                     const pct = inv.valor_investido > 0 ? (diff / inv.valor_investido) * 100 : 0;
                     return (
-                      <tr key={inv.id} className="border-b hover:bg-muted/30 transition-colors">
+                      <tr key={inv.id} className={`border-b hover:bg-muted/30 transition-colors ${selectedIds.has(inv.id) ? 'bg-primary/5' : ''}`}>
+                        <td className="py-3 px-6">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded"
+                            checked={selectedIds.has(inv.id)}
+                            onChange={(e) => {
+                              setSelectedIds((prev) => {
+                                const n = new Set(prev);
+                                if (e.target.checked) n.add(inv.id); else n.delete(inv.id);
+                                return n;
+                              });
+                            }}
+                          />
+                        </td>
                         <td className="py-3 px-6">
                           <div>
                             <p className="text-sm font-medium">{inv.nome}</p>
@@ -474,6 +543,52 @@ export default function InvestmentsPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* Paginação */}
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-between px-6 py-3 border-t">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Linhas por página:</span>
+                <Select
+                  value={rowsPerPage.toString()}
+                  onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}
+                >
+                  <SelectTrigger className="h-8 w-16 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">
+                  {(currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, filtered.length)} de {filtered.length}
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
