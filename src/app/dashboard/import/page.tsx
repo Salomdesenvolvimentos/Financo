@@ -30,7 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus, Building2, Unlink, RefreshCw, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { createTransaction } from '@/services/transactions.local';
-import { createInvestment } from '@/services/investments.local';
+import { upsertInvestment } from '@/services/investments.local';
 import type { InvestmentType } from '@/types';
 import { getCategories } from '@/services/categories.local';
 import { parsePDF, validateTransactions } from '@/services/pdf-parser';
@@ -240,17 +240,21 @@ export default function ImportPage() {
           const invData = await invRes.json();
           const invs: any[] = invData.results ?? invData.investments ?? [];
           for (const inv of invs) {
-            const valor = Number(inv.value ?? inv.amount ?? 0);
-            if (!valor) continue;
-            await createInvestment(user.id, {
+            // Pluggy field mapping:
+            // FIXED_INCOME: amount = applied amount, balance = redemption value (with earnings)
+            // EQUITY/ETF: amount = current market value (no cost basis from API)
+            const valorAtual = Number(inv.balance ?? inv.amount ?? 0);
+            const valorInvestido = Number(inv.amount ?? valorAtual);
+            if (!valorAtual && !valorInvestido) continue;
+            await upsertInvestment(user.id, {
               nome: (inv.name ?? 'Investimento').substring(0, 100),
               tipo: mapPluggyInvestmentType(inv.type, inv.subtype, inv.name),
               instituicao: inv.institutionName ?? connectedItemName,
-              valor_investido: Number(inv.amountOriginal ?? valor),
-              valor_atual: valor,
+              valor_investido: valorInvestido,
+              valor_atual: valorAtual || valorInvestido,
               data_inicio: inv.issueDate ? inv.issueDate.split('T')[0] : new Date().toISOString().split('T')[0],
               vencimento: inv.dueDate ? inv.dueDate.split('T')[0] : undefined,
-              rentabilidade_anual: inv.lastTwelveMonthsRate ? Number(inv.lastTwelveMonthsRate) : undefined,
+              rentabilidade_anual: inv.annualRate ? Number(inv.annualRate) : (inv.lastTwelveMonthsRate ? Number(inv.lastTwelveMonthsRate) : undefined),
               ativo: true,
             });
             invCount++;
