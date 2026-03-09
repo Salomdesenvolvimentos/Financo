@@ -81,9 +81,18 @@ export async function createCategory(categoryData: CategoryFormData) {
       return { data: newCategory, error: null };
     }
     
+    // Adicionar user_id aos dados antes de inserir
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      throw new Error('Usuário não autenticado');
+    }
+    
     const { data, error } = await supabase
       .from('categories')
-      .insert([categoryData])
+      .insert([{
+        ...categoryData,
+        user_id: userData.user.id
+      }])
       .select()
       .single();
 

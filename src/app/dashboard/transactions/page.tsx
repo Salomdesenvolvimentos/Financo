@@ -48,6 +48,7 @@ import type {
   Category,
 } from '@/types';
 import { formatCurrency, formatDate, formatDateISO } from '@/lib/utils';
+import { CategoryModal } from '@/components/category-modal';
 import {
   Plus,
   Search,
@@ -77,6 +78,7 @@ export default function TransactionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<TransactionFormData>({
@@ -513,6 +515,14 @@ export default function TransactionsPage() {
           >
             <Plus className="h-4 w-4" />
             Nova
+          </Button>
+          <Button
+            onClick={() => setCategoryModalOpen(true)}
+            variant="outline"
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Categoria
           </Button>
         </div>
       </div>
@@ -1108,6 +1118,23 @@ export default function TransactionsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Nova Categoria */}
+      <CategoryModal
+        isOpen={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        onCategoryCreated={() => {
+          // Recarregar categorias após criar nova
+          if (user) {
+            getCategories(user.id).then(categoriesData => {
+              if (categoriesData.data) {
+                setCategories(categoriesData.data);
+              }
+            });
+          }
+        }}
+        defaultType={formData.tipo}
+      />
     </div>
   );
 }
