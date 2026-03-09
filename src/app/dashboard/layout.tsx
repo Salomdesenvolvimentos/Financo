@@ -86,7 +86,7 @@ export default function DashboardLayoutNew({
           <button
             onClick={toggleMobileMenu}
             aria-label="Abrir menu"
-            className="fixed top-1/2 -translate-y-1/2 left-0 z-40 flex flex-col items-center justify-center gap-0.5 w-5 h-16 bg-muted hover:bg-accent border border-l-0 border-border rounded-r-lg shadow-sm transition-colors"
+            className="fixed top-1/2 -translate-y-1/2 left-0 z-40 flex flex-col items-center justify-center gap-1 w-4 h-16 bg-muted hover:bg-accent border border-l-0 border-border rounded-r-lg shadow-sm transition-all duration-300 ease-in-out"
           >
             <span className="w-1 h-1 rounded-full bg-muted-foreground" />
             <span className="w-1 h-1 rounded-full bg-muted-foreground" />
@@ -95,8 +95,8 @@ export default function DashboardLayoutNew({
         )}
 
         {/* Main Content */}
-        <main className={`flex-1 min-w-0 transition-all duration-300 ${
-          menuSettings.behavior === 'fixed' ? 'ml-64' : ''
+        <main className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${
+          menuSettings.behavior === 'fixed' ? 'ml-64' : mobileMenuOpen ? 'ml-64' : 'ml-0'
         }`}>
           <div className="container py-6">
             {children}
