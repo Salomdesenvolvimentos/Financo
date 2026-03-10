@@ -992,7 +992,7 @@ export default function DashboardPage() {
           );
 
           return (
-            <div key={layout.id} className={`${colClass} ${heightClass}`}>
+            <div key={layout.id} className={`${colClass} ${heightClass} ${editMode ? 'relative z-10' : ''}`}>
               {section}
               {editMode && (
                 <div className="mt-1 border rounded-lg bg-muted/40 px-3 py-2 flex items-center flex-wrap gap-2 text-xs">

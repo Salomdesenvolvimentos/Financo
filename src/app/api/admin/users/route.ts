@@ -39,12 +39,27 @@ export async function GET(req: NextRequest) {
 
   const supabase = getServiceClient();
 
-  const { data: users, error: dbError } = await supabase
-    .from('users')
-    .select('id, email, name, plan, created_at')
-    .order('created_at', { ascending: false });
+  // Buscar todos os usuários do auth (inclui admin mesmo sem row em public.users)
+  const { data: authData, error: authError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  if (authError) return NextResponse.json({ error: authError.message }, { status: 500 });
 
-  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+  // Buscar dados de plano de public.users
+  const { data: planRows } = await supabase
+    .from('users')
+    .select('id, name, plan');
+
+  const planMap = new Map((planRows ?? []).map((u: any) => [u.id, u]));
+
+  const users = authData.users.map((u) => {
+    const pub = planMap.get(u.id) as any;
+    return {
+      id: u.id,
+      email: u.email ?? '',
+      name: pub?.name ?? (u.user_metadata?.name as string) ?? null,
+      plan: (pub?.plan ?? 'free') as 'free' | 'premium',
+      created_at: u.created_at,
+    };
+  }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return NextResponse.json({ users });
 }

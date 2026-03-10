@@ -33,6 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer_id
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Usuário pode ver sua própria assinatura
+DROP POLICY IF EXISTS "subscriptions_select" ON public.subscriptions;
 CREATE POLICY "subscriptions_select" ON public.subscriptions
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -40,6 +41,7 @@ CREATE POLICY "subscriptions_select" ON public.subscriptions
 -- Não criamos policies de INSERT/UPDATE/DELETE para usuários finais
 
 -- Trigger updated_at
+DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON public.subscriptions;
 CREATE TRIGGER update_subscriptions_updated_at
   BEFORE UPDATE ON public.subscriptions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
