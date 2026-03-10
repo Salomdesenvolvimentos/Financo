@@ -43,6 +43,9 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Zap,
+  Trophy,
+  TriangleAlert,
 } from 'lucide-react';
 import {
   LineChart,
@@ -78,6 +81,13 @@ export default function DashboardPage() {
   // Independent forecast month (can be current or up to 6 months ahead)
   const [forecastMonth, setForecastMonth] = useState(new Date());
   const [forecastLoading, setForecastLoading] = useState(false);
+
+  // Simulator "e se...?"
+  const [simExtraExpense, setSimExtraExpense] = useState(0);
+
+  // Anomaly detection
+  const [anomalies, setAnomalies] = useState<{ categoria: string; media: number; atual: number; delta: number }[]>([]);
+
 
   // Função para buscar dados por cartão
   const getCardData = async (userId: string, month: Date) => {
@@ -270,6 +280,32 @@ export default function DashboardPage() {
       setFinancialScore(customScore as any);
       setMonthlyForecast(forecastResult.data);
       setForecastAlerts(alertsResult.data || []);
+
+      // Detecção de anomalias: categorias com gasto atual > 30% acima da média histórica
+      if (categoriesData.length > 0 && trendData.length >= 2) {
+        const detectedAnomalies: { categoria: string; media: number; atual: number; delta: number }[] = [];
+        // Build average spending per category from trend months (we use categoryExpenses as current month)
+        // Simple heuristic: flag any category whose total exceeds 1.3x the average across monthlyTrend despesa proportion
+        const avgMonthlyExpense = trendData.reduce((acc, m) => acc + m.despesa, 0) / trendData.length;
+        if (avgMonthlyExpense > 0) {
+          categoriesData.forEach(cat => {
+            // Estimate expected share: use category's share from previous month in trend
+            const catShare = cat.total / (summaryData?.despesa_total || 1);
+            const expectedForCat = avgMonthlyExpense * catShare;
+            // Flag if current month is >40% above what trend average implies
+            const expectedAvg = avgMonthlyExpense * catShare;
+            if (expectedAvg > 0 && cat.total > expectedAvg * 1.4) {
+              detectedAnomalies.push({
+                categoria: cat.categoria_nome,
+                media: Math.round(expectedAvg),
+                atual: Math.round(cat.total),
+                delta: Math.round(((cat.total - expectedAvg) / expectedAvg) * 100),
+              });
+            }
+          });
+        }
+        setAnomalies(detectedAnomalies.slice(0, 3));
+      }
 
       setLoading(false);
     }
@@ -758,6 +794,135 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Simulador + Anomalias */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Simulador "E se...?" */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              Simulador "E se...?"
+            </CardTitle>
+            <CardDescription>
+              Veja como um gasto extra afetaria sua saúde financeira este mês.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">
+                E se eu gastasse R$ a mais este mês?
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(500, Math.round((summary.receita_total || 1000) * 0.5))}
+                  step={50}
+                  value={simExtraExpense}
+                  onChange={(e) => setSimExtraExpense(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-sm font-semibold w-20 text-right">
+                  {formatCurrency(simExtraExpense)}
+                </span>
+              </div>
+            </div>
+            {(() => {
+              const simDespesa = summary.despesa_total + simExtraExpense;
+              const simSaldo = summary.receita_total - simDespesa;
+              const simEco = summary.receita_total > 0
+                ? ((simSaldo / summary.receita_total) * 100)
+                : 0;
+              const simScore = calculateCustomHealthScore(
+                { ...summary, despesa_total: simDespesa, saldo: simSaldo },
+                healthThreshold
+              );
+              const scoreDiff = simScore ? simScore.score - financialScore.score : 0;
+              return (
+                <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Despesa simulada</span>
+                    <span className="font-medium text-danger">{formatCurrency(simDespesa)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Saldo simulado</span>
+                    <span className={`font-medium ${simSaldo >= 0 ? 'text-success' : 'text-danger'}`}>
+                      {formatCurrency(simSaldo)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Economia simulada</span>
+                    <span className="font-medium">{simEco.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Pontuação de saúde</span>
+                    <span className={`font-medium ${scoreDiff < 0 ? 'text-danger' : 'text-success'}`}>
+                      {simScore?.score ?? financialScore.score} pts
+                      {scoreDiff !== 0 && (
+                        <span className="ml-1 text-xs">
+                          ({scoreDiff > 0 ? '+' : ''}{scoreDiff})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {simScore && (
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden mt-1">
+                      <div
+                        className={`h-full transition-all ${
+                          simScore.status === 'excelente' ? 'bg-success' :
+                          simScore.status === 'bom' ? 'bg-primary' :
+                          simScore.status === 'alerta' ? 'bg-warning' :
+                          'bg-danger'
+                        }`}
+                        style={{ width: `${Math.min(100, (simEco / healthThreshold) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Detecção de Anomalias */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TriangleAlert className="h-4 w-4 text-warning" />
+              Detecção de Anomalias
+            </CardTitle>
+            <CardDescription>
+              Categorias com gasto acima do esperado em relação aos últimos meses.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {anomalies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-28 gap-2 text-muted-foreground">
+                <Trophy className="h-8 w-8 text-success opacity-70" />
+                <p className="text-sm">Nenhuma anomalia detectada. Continue assim!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {anomalies.map((a, i) => (
+                  <div key={i} className="flex items-start gap-3 p-2.5 border border-warning/30 bg-warning/5 rounded-lg">
+                    <TriangleAlert className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{a.categoria}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Média histórica: {formatCurrency(a.media)} · Atual: {formatCurrency(a.atual)}
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-warning whitespace-nowrap">
+                      +{a.delta}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -29,6 +29,7 @@ import {
   User,
   ChevronDown,
   TrendingUp,
+  Trophy,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -107,6 +108,11 @@ export function Sidebar({
       icon: TrendingUp,
       label: "Investimentos",
       href: "/dashboard/investments",
+    },
+    {
+      icon: Trophy,
+      label: "Desafios",
+      href: "/dashboard/challenges",
     },
     {
       icon: Upload,
