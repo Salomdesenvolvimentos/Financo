@@ -6,10 +6,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Pluggy não configurado' }, { status: 503 });
   }
   const itemId = req.nextUrl.searchParams.get('itemId');
-  if (!itemId) return NextResponse.json({ error: 'itemId obrigatório' }, { status: 400 });
 
   try {
     const apiKey = await getPluggyApiKey();
+
+    // Se não passou itemId, listar todos os items
+    if (!itemId) {
+      const res = await fetch('https://api.pluggy.ai/items', {
+        headers: { 'X-API-KEY': apiKey },
+      });
+      const data = await res.json();
+      // Pluggy retorna { results: [...], total, page, totalPages }
+      return NextResponse.json(data);
+    }
+
     const res = await fetch(`https://api.pluggy.ai/items/${itemId}`, {
       headers: { 'X-API-KEY': apiKey },
     });

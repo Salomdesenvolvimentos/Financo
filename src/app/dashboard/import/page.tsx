@@ -67,12 +67,74 @@ export default function ImportPage() {
   const [connectedItemName, setConnectedItemName] = useState('');
   const [disconnecting, setDisconnecting] = useState(false);
 
-  // AcordeÃ£o para mÃ©todos secundÃ¡rios
+  // Acordeão para métodos secundários
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [showCsvManual, setShowCsvManual] = useState(false);
   const [showNFe, setShowNFe] = useState(false);
   const [nfeText, setNfeText] = useState('');
   const [nfeProcessing, setNfeProcessing] = useState(false);
+
+  // Gerenciar todas as conexões Pluggy
+  const [showManageConnections, setShowManageConnections] = useState(false);
+  const [allItems, setAllItems] = useState<any[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+  const handleLoadAllItems = async () => {
+    setLoadingItems(true);
+    try {
+      const res = await fetch('/api/pluggy/item');
+      const data = await res.json();
+      setAllItems(data.results ?? data.items ?? []);
+    } catch {
+      toast({ title: 'Erro ao carregar conexões', variant: 'destructive' });
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    setDeletingItemId(itemId);
+    try {
+      await fetch(`/api/pluggy/item?itemId=${itemId}`, { method: 'DELETE' });
+      setAllItems((prev) => prev.filter((i) => i.id !== itemId));
+      // Limpar conexão local se for a ativa
+      if (connectedItemId === itemId) {
+        localStorage.removeItem('pluggy_item_id');
+        localStorage.removeItem('pluggy_item_name');
+        setConnectedItemId(null);
+        setConnectedItemName('');
+        setPluggyAccounts([]);
+        setPluggyStep('idle');
+      }
+      toast({ title: 'Conexão removida com sucesso' });
+    } catch {
+      toast({ title: 'Erro ao remover conexão', variant: 'destructive' });
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
+
+  const handleDeleteAllItems = async () => {
+    if (allItems.length === 0) return;
+    setLoadingItems(true);
+    let deleted = 0;
+    for (const item of allItems) {
+      try {
+        await fetch(`/api/pluggy/item?itemId=${item.id}`, { method: 'DELETE' });
+        deleted++;
+      } catch {}
+    }
+    setAllItems([]);
+    localStorage.removeItem('pluggy_item_id');
+    localStorage.removeItem('pluggy_item_name');
+    setConnectedItemId(null);
+    setConnectedItemName('');
+    setPluggyAccounts([]);
+    setPluggyStep('idle');
+    setLoadingItems(false);
+    toast({ title: `${deleted} conexão(ões) removida(s)`, description: 'Agora você pode conectar novamente.' });
+  };
 
   useEffect(() => {
     if (user) {
@@ -850,6 +912,82 @@ export default function ImportPage() {
             </Link>
           </CardContent>
         </Card>
+      )}
+
+      {/* ===== GERENCIAR CONEXÕES PLUGGY ===== */}
+      {isPremium && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between px-5 py-4 bg-card hover:bg-muted/50 transition-colors text-left"
+            onClick={() => {
+              setShowManageConnections(!showManageConnections);
+              if (!showManageConnections) handleLoadAllItems();
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Unlink className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="font-medium text-sm">Gerenciar conexões Pluggy</p>
+                <p className="text-xs text-muted-foreground">Visualize e exclua itens cadastrados — útil se atingiu o limite</p>
+              </div>
+            </div>
+            {showManageConnections ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {showManageConnections && (
+            <div className="px-5 pb-5 pt-3 border-t border-border space-y-3">
+              {loadingItems ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : allItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma conexão encontrada na sua conta Pluggy.</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">{allItems.length} conexão(ões) encontrada(s)</p>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDeleteAllItems}
+                      disabled={loadingItems}
+                      className="gap-2 text-xs"
+                    >
+                      <Unlink className="h-3 w-3" />
+                      Excluir todas
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {allItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.connector?.name ?? item.institution?.name ?? 'Banco desconhecido'}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{item.id}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Status: <span className={item.status === 'UPDATED' ? 'text-green-600' : 'text-orange-500'}>{item.status ?? 'desconhecido'}</span>
+                            {item.createdAt && <> · criado em {new Date(item.createdAt).toLocaleDateString('pt-BR')}</>}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteItem(item.id)}
+                          disabled={deletingItemId === item.id}
+                          className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950 ml-3 shrink-0"
+                        >
+                          {deletingItemId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+                          Excluir
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    Após excluir, clique em "Conectar meu banco" acima para criar uma nova conexão.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ===== ACORDEÃO: UPLOAD PDF/CSV/XLSX ===== */}
