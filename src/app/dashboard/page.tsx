@@ -702,6 +702,75 @@ export default function DashboardPage() {
                 <span>{alert.mensagem}</span>
               </div>
             ))}
+
+            {/* Simulador E se...? */}
+            <div className="border-t pt-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Zap className="h-3 w-3 text-primary" />
+                Simulador — e se eu gastar mais este mês?
+              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(500, Math.round((monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas) * 0.5))}
+                  step={50}
+                  value={simExtraExpense}
+                  onChange={(e) => setSimExtraExpense(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-xs font-semibold w-20 text-right">
+                  {formatCurrency(simExtraExpense)}
+                </span>
+              </div>
+              {(() => {
+                const baseReceita = monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas;
+                const baseDespesa = monthlyForecast.despesas_realizadas + monthlyForecast.despesas_previstas;
+                const simDespesa = baseDespesa + simExtraExpense;
+                const simSaldo = baseReceita - simDespesa;
+                const simEco = baseReceita > 0 ? (simSaldo / baseReceita) * 100 : 0;
+                const simScore = calculateCustomHealthScore(
+                  { receita_total: baseReceita, despesa_total: simDespesa, saldo: simSaldo },
+                  healthThreshold
+                );
+                const scoreDiff = simScore ? simScore.score - financialScore.score : 0;
+                return (
+                  <div className="rounded-lg border p-2.5 space-y-1.5 bg-muted/30 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Despesa total (c/ fixas)</span>
+                      <span className="font-medium text-danger">{formatCurrency(simDespesa)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Saldo previsto</span>
+                      <span className={`font-medium ${simSaldo >= 0 ? 'text-success' : 'text-danger'}`}>
+                        {formatCurrency(simSaldo)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Saúde financeira</span>
+                      <span className={`font-medium ${scoreDiff < 0 ? 'text-danger' : 'text-muted-foreground'}`}>
+                        {simScore?.score ?? financialScore.score} pts
+                        {scoreDiff !== 0 && (
+                          <span className="ml-1">({scoreDiff > 0 ? '+' : ''}{scoreDiff})</span>
+                        )}
+                      </span>
+                    </div>
+                    {simScore && (
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${
+                            simScore.status === 'excelente' ? 'bg-success' :
+                            simScore.status === 'bom' ? 'bg-primary' :
+                            simScore.status === 'alerta' ? 'bg-warning' : 'bg-danger'
+                          }`}
+                          style={{ width: `${Math.min(100, (simEco / healthThreshold) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -795,100 +864,10 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Simulador + Anomalias */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Simulador "E se...?" */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" />
-              Simulador "E se...?"
-            </CardTitle>
-            <CardDescription>
-              Veja como um gasto extra afetaria sua saúde financeira este mês.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">
-                E se eu gastasse R$ a mais este mês?
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(500, Math.round((summary.receita_total || 1000) * 0.5))}
-                  step={50}
-                  value={simExtraExpense}
-                  onChange={(e) => setSimExtraExpense(Number(e.target.value))}
-                  className="flex-1"
-                />
-                <span className="text-sm font-semibold w-20 text-right">
-                  {formatCurrency(simExtraExpense)}
-                </span>
-              </div>
-            </div>
-            {(() => {
-              const simDespesa = summary.despesa_total + simExtraExpense;
-              const simSaldo = summary.receita_total - simDespesa;
-              const simEco = summary.receita_total > 0
-                ? ((simSaldo / summary.receita_total) * 100)
-                : 0;
-              const simScore = calculateCustomHealthScore(
-                { ...summary, despesa_total: simDespesa, saldo: simSaldo },
-                healthThreshold
-              );
-              const scoreDiff = simScore ? simScore.score - financialScore.score : 0;
-              return (
-                <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Despesa simulada</span>
-                    <span className="font-medium text-danger">{formatCurrency(simDespesa)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Saldo simulado</span>
-                    <span className={`font-medium ${simSaldo >= 0 ? 'text-success' : 'text-danger'}`}>
-                      {formatCurrency(simSaldo)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Economia simulada</span>
-                    <span className="font-medium">{simEco.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Pontuação de saúde</span>
-                    <span className={`font-medium ${scoreDiff < 0 ? 'text-danger' : 'text-success'}`}>
-                      {simScore?.score ?? financialScore.score} pts
-                      {scoreDiff !== 0 && (
-                        <span className="ml-1 text-xs">
-                          ({scoreDiff > 0 ? '+' : ''}{scoreDiff})
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  {simScore && (
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden mt-1">
-                      <div
-                        className={`h-full transition-all ${
-                          simScore.status === 'excelente' ? 'bg-success' :
-                          simScore.status === 'bom' ? 'bg-primary' :
-                          simScore.status === 'alerta' ? 'bg-warning' :
-                          'bg-danger'
-                        }`}
-                        style={{ width: `${Math.min(100, (simEco / healthThreshold) * 100)}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-
-        {/* Detecção de Anomalias */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
+      {/* Detecção de Anomalias */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
               <TriangleAlert className="h-4 w-4 text-warning" />
               Detecção de Anomalias
             </CardTitle>
@@ -921,8 +900,7 @@ export default function DashboardPage() {
               </div>
             )}
           </CardContent>
-        </Card>
-      </div>
+      </Card>
     </div>
   );
 }

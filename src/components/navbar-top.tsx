@@ -30,6 +30,7 @@ import {
   User,
   ChevronDown,
   TrendingUp,
+  Trophy,
 } from 'lucide-react';
 
 interface NavbarTopProps {
@@ -108,6 +109,11 @@ export function NavbarTop({
       icon: TrendingUp,
       label: "Investimentos",
       href: "/dashboard/investments",
+    },
+    {
+      icon: Trophy,
+      label: "Desafios",
+      href: "/dashboard/challenges",
     },
     {
       icon: Upload,
