@@ -116,19 +116,18 @@ export default function DashboardLayoutNew({
   // Menu Superior
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Navbar - ocultável */}
-      <div className={`transition-all duration-300 ${navbarHidden ? '-translate-y-full h-0 overflow-hidden' : 'translate-y-0'}`}>
-        <NavbarTop
-          userName={user.nome || user.email || 'Usuário'}
-          darkMode={darkMode}
-          onToggleTheme={toggleTheme}
-          onToggleMenu={toggleMobileMenu}
-          isMenuOpen={mobileMenuOpen}
-          isCollapsible={effectiveBehavior === 'collapsible'}
-        />
-      </div>
+      {/* NavbarTop é fixed — não ocupa espaço no fluxo */}
+      <NavbarTop
+        userName={user.nome || user.email || 'Usuário'}
+        darkMode={darkMode}
+        onToggleTheme={toggleTheme}
+        onToggleMenu={toggleMobileMenu}
+        isMenuOpen={mobileMenuOpen}
+        isCollapsible={effectiveBehavior === 'collapsible'}
+        hidden={navbarHidden}
+      />
 
-      {/* Tab central para ocultar/mostrar navbar - igual ao sidebar */}
+      {/* Tab central para ocultar/mostrar navbar — sempre visível */}
       <button
         onClick={() => setNavbarHidden(!navbarHidden)}
         aria-label={navbarHidden ? 'Mostrar menu' : 'Ocultar menu'}
@@ -141,8 +140,8 @@ export default function DashboardLayoutNew({
         <span className="w-1 h-1 rounded-full bg-muted-foreground" />
       </button>
 
-      {/* Main Content */}
-      <main className="flex-1">
+      {/* Main Content — padding-top compensa a navbar fixa */}
+      <main className={`flex-1 transition-all duration-300 ${navbarHidden ? 'pt-5' : 'pt-14'}`}>
         <div className="container py-6">
           {children}
         </div>

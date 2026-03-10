@@ -40,6 +40,7 @@ interface NavbarTopProps {
   onToggleMenu: () => void;
   isMenuOpen: boolean;
   isCollapsible: boolean;
+  hidden?: boolean;
 }
 
 export function NavbarTop({ 
@@ -48,7 +49,8 @@ export function NavbarTop({
   onToggleTheme,
   onToggleMenu,
   isMenuOpen,
-  isCollapsible 
+  isCollapsible,
+  hidden = false,
 }: NavbarTopProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -130,7 +132,7 @@ export function NavbarTop({
   return (
     <>
       {/* Header */}
-      <header className="glass border-b border-border sticky top-0 z-[100]">
+      <header className={`glass border-b border-border fixed top-0 left-0 right-0 w-full z-[100] transition-transform duration-300 ${hidden ? '-translate-y-full' : 'translate-y-0'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-14 relative">
             {/* Left Section */}

@@ -39,6 +39,7 @@ export default function AdminPage() {
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [updating, setUpdating] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ id: string; ok: boolean } | null>(null);
@@ -57,17 +58,28 @@ export default function AdminPage() {
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
+    setError(null);
     const token = await fetchToken();
-    if (!token) return;
+    if (!token) {
+      setError('Sessão expirada. Faça login novamente.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch('/api/admin/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (data.users) setUsers(data.users);
-    } catch {
-      // silencioso
+      if (data.error) {
+        setError(`Erro da API: ${data.error}`);
+      } else if (data.users) {
+        setUsers(data.users);
+      } else {
+        setError(`Resposta inesperada (status ${res.status}): ${JSON.stringify(data)}`);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido ao buscar usuários');
     } finally {
       setLoading(false);
     }
@@ -190,6 +202,11 @@ export default function AdminPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800 text-sm text-red-700 dark:text-red-400">
+              <strong>Erro:</strong> {error}
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

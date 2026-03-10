@@ -992,10 +992,10 @@ export default function DashboardPage() {
           );
 
           return (
-            <div key={layout.id} className={`${colClass} ${heightClass} ${editMode ? 'relative z-10' : ''}`}>
+            <div key={layout.id} className={`${colClass} ${heightClass}`}>
               {section}
               {editMode && (
-                <div className="mt-1 border rounded-lg bg-muted/40 px-3 py-2 flex items-center flex-wrap gap-2 text-xs">
+                <div className="relative z-[9999] mt-1 border rounded-lg bg-muted/40 px-3 py-2 flex items-center flex-wrap gap-2 text-xs">
                   <span className="font-medium text-muted-foreground truncate max-w-[8rem]">{layout.label}</span>
                   <div className="flex items-center gap-1.5 ml-auto flex-wrap">
                     <span className="text-muted-foreground text-[10px]">W:</span>
