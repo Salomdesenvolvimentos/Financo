@@ -85,6 +85,9 @@ export default function TransactionsPage() {
     useState<Transaction | null>(null);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
+  // Cartões de crédito vindos do Pluggy (Open Finance)
+  const [pluggyCreditCards, setPluggyCreditCards] = useState<any[]>([]);
+
   // Form state
   const [formData, setFormData] = useState<TransactionFormData>({
     descricao: '',
@@ -136,6 +139,20 @@ export default function TransactionsPage() {
 
     loadData();
   }, [user, filters]);
+
+  // Buscar contas de crédito do Pluggy (Open Finance) para exibir faturas em tempo real
+  useEffect(() => {
+    const itemId = typeof window !== 'undefined' ? localStorage.getItem('pluggy_item_id') : null;
+    if (!itemId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/pluggy/accounts?itemId=${itemId}`);
+        const data = await res.json();
+        const accounts: any[] = data.results ?? data.accounts ?? [];
+        setPluggyCreditCards(accounts.filter((a: any) => a.type === 'CREDIT'));
+      } catch {}
+    })();
+  }, []);
 
   // keep editingValue in sync when we start editing a cell
   useEffect(() => {
@@ -427,20 +444,116 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-4">
 
-      {/* Banner informativo sobre faturas excluídas */}
+      {/* Card de Faturas de Cartão */}
       {(() => {
-        const faturas = transactions.filter((t) => t.is_fatura);
-        if (faturas.length === 0) return null;
-        const totalFatura = faturas.reduce((s, t) => s + Number(t.valor), 0);
-        return (
-          <div className="flex items-start gap-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-            <CreditCard className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
-            <div>
-              <span className="font-semibold">{faturas.length} fatura{faturas.length > 1 ? 's' : ''} de cartão excluída{faturas.length > 1 ? 's' : ''} do total de despesas</span>
-              {' '}({formatCurrency(totalFatura)} no período filtrado).{' '}
-              As transações individuais do cartão já contabilizam esses gastos.
-              Use o botão <CreditCard className="inline h-3.5 w-3.5 mx-0.5" /> em cada linha para marcar/desmarcar.
+        // Parcelas futuras (andamento) agrupadas por cartão para exibir abaixo de cada linha
+        const parcelasFuturas = transactions.filter(
+          (t) => t.status === 'andamento' && t.tipo === 'despesa' && !t.is_fatura
+        );
+        const parcelasPorCartao = new Map<string, { count: number; total: number }>();
+        parcelasFuturas.forEach((t) => {
+          const card = t.forma_pagamento || 'Outros';
+          const prev = parcelasPorCartao.get(card) ?? { count: 0, total: 0 };
+          parcelasPorCartao.set(card, { count: prev.count + 1, total: prev.total + Number(t.valor) });
+        });
+
+        // ── Fonte primária: contas de crédito do Pluggy (Open Finance) ──
+        if (pluggyCreditCards.length > 0) {
+          const totalFatura = pluggyCreditCards.reduce(
+            (sum, a) => sum + Math.abs(Number(a.balance ?? 0)),
+            0
+          );
+          return (
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">Faturas de Cartão</span>
+                  <span className="text-xs text-amber-500 dark:text-amber-400 font-normal">· Open Finance</span>
+                </div>
+                <span className="text-lg font-bold text-amber-900 dark:text-amber-100">{formatCurrency(totalFatura)}</span>
+              </div>
+              <div className="mt-2 space-y-1.5 border-t border-amber-200 dark:border-amber-700 pt-2">
+                {pluggyCreditCards.map((card) => {
+                  const fatura = Math.abs(Number(card.balance ?? 0));
+                  const dueDate = card.creditData?.balanceDueDate
+                    ? new Date(card.creditData.balanceDueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                    : null;
+                  const parcelas = parcelasPorCartao.get(card.name);
+                  return (
+                    <div key={card.id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-700 dark:text-amber-300">{card.name}</span>
+                        {parcelas && parcelas.count > 0 && (
+                          <span className="text-xs text-muted-foreground bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
+                            +{parcelas.count} parcela{parcelas.count > 1 ? 's' : ''} futura{parcelas.count > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {dueDate && (
+                          <span className="text-xs text-muted-foreground">vence {dueDate}</span>
+                        )}
+                        <span className="font-semibold text-amber-800 dark:text-amber-200">{formatCurrency(fatura)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          );
+        }
+
+        // ── Fallback: transações marcadas como is_fatura (agrupadas por cartão) ──
+        const faturas = transactions.filter((t) => t.is_fatura);
+        if (faturas.length === 0 && parcelasFuturas.length === 0) return null;
+        const totalFaturaLocal = faturas.reduce((s, t) => s + Number(t.valor), 0);
+        const byCard = new Map<string, number>();
+        faturas.forEach((t) => {
+          const card = t.forma_pagamento || t.descricao || 'Cartão';
+          byCard.set(card, (byCard.get(card) ?? 0) + Number(t.valor));
+        });
+        return (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-amber-600" />
+                <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">Faturas de Cartão</span>
+              </div>
+              {totalFaturaLocal > 0 && (
+                <span className="text-lg font-bold text-amber-900 dark:text-amber-100">{formatCurrency(totalFaturaLocal)}</span>
+              )}
+            </div>
+            {byCard.size > 0 && (
+              <div className="mt-2 space-y-1.5 border-t border-amber-200 dark:border-amber-700 pt-2">
+                {Array.from(byCard.entries()).map(([card, total]) => {
+                  const parcelas = parcelasPorCartao.get(card);
+                  return (
+                    <div key={card} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-700 dark:text-amber-300">{card}</span>
+                        {parcelas && parcelas.count > 0 && (
+                          <span className="text-xs text-muted-foreground bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
+                            +{parcelas.count} parcela{parcelas.count > 1 ? 's' : ''} futura{parcelas.count > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-semibold text-amber-800 dark:text-amber-200">{formatCurrency(total)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {faturas.length === 0 && parcelasFuturas.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                Conecte seu banco via Open Finance (Importação) para ver faturas em tempo real.
+              </p>
+            )}
+            {faturas.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Use o botão <CreditCard className="inline h-3 w-3 mx-0.5" /> em cada linha para marcar/desmarcar faturas.
+              </p>
+            )}
           </div>
         );
       })()}
