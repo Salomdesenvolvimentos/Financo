@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useMenuSettings, MenuPosition, MenuBehavior } from '@/hooks/use-menu-settings';
+import { usePlan } from '@/hooks/use-plan';
 import { Sidebar } from '@/components/navbar-sidebar';
 import { NavbarTop } from '@/components/navbar-top';
 import { Loader2, Menu } from 'lucide-react';
@@ -22,6 +23,11 @@ export default function DashboardLayoutNew({
   const { user, loading } = useAuth();
   const router = useRouter();
   const { settings: menuSettings } = useMenuSettings();
+  const { isPremium } = usePlan();
+
+  // Free plan: always sidebar fixed
+  const effectivePosition: MenuPosition = isPremium ? menuSettings.position : 'side';
+  const effectiveBehavior: MenuBehavior = isPremium ? menuSettings.behavior : 'fixed';
   const [darkMode, setDarkMode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navbarHidden, setNavbarHidden] = useState(false);
@@ -69,20 +75,20 @@ export default function DashboardLayoutNew({
   }
 
   // Menu Lateral
-  if (menuSettings.position === 'side') {
+  if (effectivePosition === 'side') {
     return (
       <div className="min-h-screen flex">
         <Sidebar
-          isOpen={menuSettings.behavior === 'fixed' ? true : mobileMenuOpen}
+          isOpen={effectiveBehavior === 'fixed' ? true : mobileMenuOpen}
           onClose={closeMobileMenu}
           userName={user.nome || user.email || 'Usuário'}
           darkMode={darkMode}
           onToggleTheme={toggleTheme}
-          isCollapsible={menuSettings.behavior === 'collapsible'}
+          isCollapsible={effectiveBehavior === 'collapsible'}
         />
 
         {/* Botão toggle para sidebar colapsável */}
-        {menuSettings.behavior === 'collapsible' && !mobileMenuOpen && (
+        {effectiveBehavior === 'collapsible' && !mobileMenuOpen && (
           <button
             onClick={toggleMobileMenu}
             aria-label="Abrir menu"
@@ -96,7 +102,7 @@ export default function DashboardLayoutNew({
 
         {/* Main Content */}
         <main className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${
-          menuSettings.behavior === 'fixed' ? 'ml-64' : mobileMenuOpen ? 'ml-64' : 'ml-0'
+          effectiveBehavior === 'fixed' ? 'ml-64' : mobileMenuOpen ? 'ml-64' : 'ml-0'
         }`}>
           <div className="container py-6">
             {children}
@@ -118,7 +124,7 @@ export default function DashboardLayoutNew({
           onToggleTheme={toggleTheme}
           onToggleMenu={toggleMobileMenu}
           isMenuOpen={mobileMenuOpen}
-          isCollapsible={menuSettings.behavior === 'collapsible'}
+          isCollapsible={effectiveBehavior === 'collapsible'}
         />
       </div>
 

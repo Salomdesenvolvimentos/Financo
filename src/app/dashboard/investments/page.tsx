@@ -32,6 +32,8 @@ import {
 } from '@/services/investments.local';
 import type { Investment, InvestmentFormData, InvestmentType } from '@/types';
 import { formatCurrency } from '@/lib/utils';
+import Link from 'next/link';
+import { usePlan } from '@/hooks/use-plan';
 import {
   Plus,
   Edit,
@@ -45,6 +47,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Crown,
 } from 'lucide-react';
 
 const INVESTMENT_TYPE_LABELS: Record<InvestmentType, string> = {
@@ -84,6 +87,7 @@ const DEFAULT_FORM: InvestmentFormData = {
 
 export default function InvestmentsPage() {
   const { user } = useAuth();
+  const { isPremium } = usePlan();
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -99,6 +103,7 @@ export default function InvestmentsPage() {
   useEffect(() => {
     if (!user) return;
     loadInvestments();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   async function loadInvestments() {
@@ -193,6 +198,26 @@ export default function InvestmentsPage() {
   const totalAtual = investments.reduce((s, inv) => s + inv.valor_atual, 0);
   const lucro = totalAtual - totalInvestido;
   const rentabilidadeTotal = totalInvestido > 0 ? (lucro / totalInvestido) * 100 : 0;
+
+  if (!isPremium) {
+    return (
+      <div className="container max-w-2xl py-16 flex flex-col items-center text-center gap-6">
+        <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+          <Crown className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold mb-2">Carteira de Investimentos</h1>
+          <p className="text-muted-foreground max-w-sm">Disponível no plano <strong>Premium</strong>. Faça upgrade para gerenciar sua carteira de investimentos.</p>
+        </div>
+        <Link href="/dashboard/subscription">
+          <button className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-lg font-medium hover:bg-primary/90 transition-colors">
+            <Crown className="h-4 w-4" />
+            Fazer upgrade para Premium
+          </button>
+        </Link>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

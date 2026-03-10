@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useMenuSettings } from '@/hooks/use-menu-settings';
 import { useToast } from '@/hooks/use-toast';
+import { usePlan } from '@/hooks/use-plan';
 import {
   Card,
   CardContent,
@@ -37,7 +38,10 @@ import {
   X,
   Palette,
   Monitor,
+  Crown,
+  Lock,
 } from 'lucide-react';
+import Link from 'next/link';
 
 const PRESET_COLORS = [
   '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444',
@@ -48,6 +52,7 @@ export default function SettingsPageNew() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { settings: menuSettings, updatePosition, updateBehavior } = useMenuSettings();
+  const { isPremium } = usePlan();
   const [savingCategory, setSavingCategory] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -303,7 +308,23 @@ export default function SettingsPageNew() {
       {/* ── Menu ── */}
       <section aria-labelledby="section-menu">
         <h2 id="section-menu" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Menu de Navegação</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+
+        {!isPremium && (
+          <div className="mb-3 flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-sm">
+            <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <span className="text-amber-800 dark:text-amber-200 flex-1">
+              Personalização do menu é exclusiva do plano <strong>Premium</strong>.
+            </span>
+            <Link href="/dashboard/subscription">
+              <Button size="sm" variant="outline" className="gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900">
+                <Crown className="h-3.5 w-3.5" />
+                Fazer upgrade
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        <div className={`grid gap-4 sm:grid-cols-2 ${!isPremium ? 'opacity-50 pointer-events-none select-none' : ''}`}>
           <Card className="card-hover">
             <CardContent className="pt-6 space-y-3">
               <div className="flex items-center gap-2 mb-1">
@@ -317,6 +338,7 @@ export default function SettingsPageNew() {
                     type="button"
                     aria-pressed={menuSettings.position === pos}
                     onClick={() => updatePosition(pos)}
+                    disabled={!isPremium}
                     className={`flex flex-col items-center justify-center gap-2 py-3 rounded-xl border-2 text-xs font-medium transition-all ${
                       menuSettings.position === pos
                         ? 'border-primary bg-accent text-accent-foreground'
@@ -346,6 +368,7 @@ export default function SettingsPageNew() {
                     type="button"
                     aria-pressed={menuSettings.behavior === beh}
                     onClick={() => updateBehavior(beh)}
+                    disabled={!isPremium}
                     className={`flex flex-col items-center justify-center gap-2 py-3 rounded-xl border-2 text-xs font-medium transition-all ${
                       menuSettings.behavior === beh
                         ? 'border-primary bg-accent text-accent-foreground'

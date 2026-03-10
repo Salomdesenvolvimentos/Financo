@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { usePlan } from '@/hooks/use-plan';
 import {
   DollarSign,
   LayoutDashboard,
@@ -30,6 +31,8 @@ import {
   ChevronDown,
   TrendingUp,
   Trophy,
+  Crown,
+  Shield,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -53,6 +56,7 @@ export function Sidebar({
   const pathname = usePathname();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isPremium } = usePlan();
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -124,6 +128,15 @@ export function Sidebar({
       label: "Configurações",
       href: "/dashboard/settings",
     },
+    {
+      icon: Crown,
+      label: isPremium ? "Premium ativo" : "Assinar Premium",
+      href: "/dashboard/subscription",
+      highlight: !isPremium,
+    },
+    ...(user?.email === 'salomdesenvolvimentos@hotmail.com'
+      ? [{ icon: Shield, label: 'Admin', href: '/dashboard/admin', highlight: false }]
+      : []),
   ];
 
   return (
@@ -181,12 +194,19 @@ export function Sidebar({
                   className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all group ${
                     isActive
                       ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                      : (item as any).highlight
+                        ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                   }`}
                 >
-                  <Icon className={`h-4 w-4 flex-shrink-0 transition-colors ${isActive ? 'text-primary' : ''}`} />
+                  <Icon className={`h-4 w-4 flex-shrink-0 transition-colors ${isActive ? 'text-primary' : (item as any).highlight ? 'text-amber-500' : ''}`} />
                   <span className="truncate">{item.label}</span>
                   {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />}
+                  {!(isActive) && (item as any).highlight && (
+                    <span className="ml-auto text-[10px] font-semibold bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full">
+                      PRO
+                    </span>
+                  )}
                 </Link>
               );
             })}

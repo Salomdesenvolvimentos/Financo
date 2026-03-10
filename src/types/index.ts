@@ -11,6 +11,7 @@ export interface User {
   id: string;
   email: string;
   nome: string;
+  plan?: 'free' | 'premium';
   created_at: string;
   updated_at: string;
 }
@@ -409,4 +410,24 @@ export interface InvestmentFormData {
   rentabilidade_anual?: number;
   notas?: string;
   ativo: boolean;
+}
+
+// ============================================
+// Tipos para Planos e Assinaturas
+// ============================================
+
+export type Plan = 'free' | 'premium';
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  status: 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing';
+  plan: Plan;
+  current_period_start?: string;
+  current_period_end?: string;
+  canceled_at?: string;
+  created_at: string;
+  updated_at: string;
 }

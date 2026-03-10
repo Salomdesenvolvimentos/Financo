@@ -16,8 +16,12 @@ import {
   PiggyBank,
   BarChart3,
   Zap,
+  Crown,
+  Lock,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
+import { usePlan } from '@/hooks/use-plan';
 import { aiChatBot } from '@/services/ai-chatbot-openai';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -108,6 +112,7 @@ const QUICK_ACTIONS = [
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function AIChatBot() {
   const { user } = useAuth();
+  const { isPremium } = usePlan();
   const [isOpen, setIsOpen]           = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages]       = useState<ChatMessage[]>([]);

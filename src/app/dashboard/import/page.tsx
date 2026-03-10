@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { PluggyConnect as PluggyConnectType } from 'react-pluggy-connect';
 
 const PluggyConnect = dynamic(
@@ -16,6 +17,7 @@ const PluggyConnect = dynamic(
 ) as typeof PluggyConnectType;
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { usePlan } from '@/hooks/use-plan';
 import {
   Card,
   CardContent,
@@ -26,7 +28,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus, Building2, Unlink, RefreshCw, TrendingUp, ChevronDown, ChevronUp, QrCode, ScanLine } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus, Building2, Unlink, RefreshCw, TrendingUp, ChevronDown, ChevronUp, QrCode, ScanLine, Crown, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { createTransaction } from '@/services/transactions.local';
 import { upsertInvestment } from '@/services/investments.local';
@@ -42,6 +44,7 @@ export default function ImportPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const { isPremium } = usePlan();
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [manualText, setManualText] = useState('');
@@ -657,7 +660,8 @@ export default function ImportPage() {
       </div>
 
       {/* ===== BLOCO PRINCIPAL: BANCO DIRETO (Open Finance) ===== */}
-      <Card className="border-primary/40 shadow-md">
+      {isPremium ? (
+        <Card className="border-primary/40 shadow-md">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Building2 className="h-5 w-5 text-primary" />
@@ -820,8 +824,35 @@ export default function ImportPage() {
           )}
         </CardContent>
       </Card>
+      ) : (
+        /* Usuário Free — mostra banner de upgrade */
+        <Card className="border-amber-300 dark:border-amber-700 shadow-md">
+          <CardContent className="py-10 flex flex-col items-center text-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+              <Crown className="h-7 w-7 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-1">Open Finance é exclusivo do plano Premium</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Conecte seu banco diretamente e importe transações automaticamente de mais de 100 bancos brasileiros.
+              </p>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p className="flex items-center gap-2 justify-center"><CheckCircle className="h-4 w-4 text-green-500" /> Nubank, Itaú, Bradesco, XP, Inter e +100</p>
+              <p className="flex items-center gap-2 justify-center"><CheckCircle className="h-4 w-4 text-green-500" /> Parcelas detectadas automaticamente</p>
+              <p className="flex items-center gap-2 justify-center"><CheckCircle className="h-4 w-4 text-green-500" /> Conexão segura via Pluggy</p>
+            </div>
+            <Link href="/dashboard/subscription">
+              <Button size="lg" className="gap-2 mt-2">
+                <Crown className="h-4 w-4" />
+                Fazer upgrade para Premium
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* ===== ACORDEÃƒO: UPLOAD PDF/CSV/XLSX ===== */}
+      {/* ===== ACORDEÃO: UPLOAD PDF/CSV/XLSX ===== */}
       <div className="rounded-xl border border-border overflow-hidden">
         <button
           className="w-full flex items-center justify-between px-5 py-4 bg-card hover:bg-muted/50 transition-colors text-left"
