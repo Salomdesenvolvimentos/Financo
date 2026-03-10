@@ -48,8 +48,10 @@ export async function getFinancialSummary(
     .filter((t) => t.tipo === 'receita')
     .reduce((sum, t) => sum + Number(t.valor), 0);
 
+  // Faturas de cartão (is_fatura = true) são excluídas para evitar dupla
+  // contagem — as transações individuais do cartão já estão somadas.
   const despesa_total = transactions
-    .filter((t) => t.tipo === 'despesa')
+    .filter((t) => t.tipo === 'despesa' && !t.is_fatura)
     .reduce((sum, t) => sum + Number(t.valor), 0);
 
   const saldo = receita_total - despesa_total;
@@ -255,8 +257,9 @@ export async function getMonthlyTrend(
       ?.filter((t) => t.tipo === 'receita')
       .reduce((sum, t) => sum + Number(t.valor), 0) || 0;
 
+    // Excluir faturas de cartão para evitar dupla contagem
     const despesa = transactions
-      ?.filter((t) => t.tipo === 'despesa')
+      ?.filter((t) => t.tipo === 'despesa' && !t.is_fatura)
       .reduce((sum, t) => sum + Number(t.valor), 0) || 0;
 
     trends.push({

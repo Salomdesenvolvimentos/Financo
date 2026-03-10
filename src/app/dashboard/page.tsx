@@ -41,6 +41,8 @@ import {
   AlertCircle,
   Calendar,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   LineChart,
@@ -73,6 +75,9 @@ export default function DashboardPage() {
   const [healthThreshold, setHealthThreshold] = useState(30); // Percentual padrão 30%
   const [monthlyForecast, setMonthlyForecast] = useState<MonthlyForecast | null>(null);
   const [forecastAlerts, setForecastAlerts] = useState<ForecastAlert[]>([]);
+  // Independent forecast month (can be current or up to 6 months ahead)
+  const [forecastMonth, setForecastMonth] = useState(new Date());
+  const [forecastLoading, setForecastLoading] = useState(false);
 
   // Função para buscar dados por cartão
   const getCardData = async (userId: string, month: Date) => {
@@ -93,7 +98,8 @@ export default function DashboardPage() {
     const cardMap = new Map();
     
     transactions.forEach(transaction => {
-      if (transaction.forma_pagamento) {
+      // Faturas de cartão são excluídas do total por cartão para evitar dupla contagem
+      if (transaction.forma_pagamento && !transaction.is_fatura) {
         const card = transaction.forma_pagamento;
         console.log('Processando cartão:', card, 'valor:', transaction.valor);
         
@@ -142,7 +148,8 @@ export default function DashboardPage() {
     transactions.forEach(transaction => {
       if (transaction.tipo === 'receita') {
         yearlySummary.total_receitas += Math.abs(transaction.valor);
-      } else {
+      } else if (transaction.tipo === 'despesa' && !transaction.is_fatura) {
+        // Excluir faturas de cartão para evitar dupla contagem
         yearlySummary.total_despesas += Math.abs(transaction.valor);
       }
     });
@@ -269,6 +276,20 @@ export default function DashboardPage() {
 
     loadData();
   }, [user, selectedMonth, viewMode, healthThreshold]);
+
+  // Reload forecast independently when forecastMonth changes
+  useEffect(() => {
+    if (!user) return;
+    setForecastLoading(true);
+    Promise.all([
+      calculateMonthlyForecast(user.id, forecastMonth.getFullYear(), forecastMonth.getMonth() + 1),
+      generateForecastAlerts(user.id, forecastMonth.getFullYear(), forecastMonth.getMonth() + 1),
+    ]).then(([fRes, aRes]) => {
+      setMonthlyForecast(fRes.data);
+      setForecastAlerts(aRes.data || []);
+      setForecastLoading(false);
+    });
+  }, [user, forecastMonth]);
 
   if (loading || !summary || !financialScore || !monthlyForecast) {
     return (
@@ -545,7 +566,7 @@ export default function DashboardPage() {
                 monthlyForecast.status === 'critico' ? 'text-danger' :
                 monthlyForecast.status === 'alerta' ? 'text-warning' : ''
               }`}>
-                Previsão do Mês
+                Previsão Financeira
               </CardTitle>
               <div className={`text-xl font-bold ${
                 monthlyForecast.saldo_previsto_final >= 0 ? 'text-success' : 'text-danger'
@@ -553,11 +574,56 @@ export default function DashboardPage() {
                 {formatCurrency(monthlyForecast.saldo_previsto_final)}
               </div>
             </div>
-            <CardDescription>
-              {monthlyForecast.mes_nome} {monthlyForecast.ano} · {monthlyForecast.dias_restantes} dias restantes
-            </CardDescription>
+            {/* Month navigation */}
+            <div className="flex items-center gap-2 mt-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  const prev = new Date(forecastMonth);
+                  prev.setMonth(prev.getMonth() - 1);
+                  // Don't go more than 12 months in the past
+                  const minDate = new Date();
+                  minDate.setMonth(minDate.getMonth() - 12);
+                  if (prev >= minDate) setForecastMonth(prev);
+                }}
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+              <CardDescription className="flex-1 text-center text-xs">
+                {forecastLoading ? (
+                  <span className="animate-pulse">Carregando...</span>
+                ) : (
+                  <>
+                    {monthlyForecast.mes_nome} {monthlyForecast.ano}
+                    {forecastMonth.getMonth() !== new Date().getMonth() ||
+                    forecastMonth.getFullYear() !== new Date().getFullYear() ? (
+                      <span className="ml-1 text-primary font-medium">(projeção)</span>
+                    ) : (
+                      <span className="ml-1">· {monthlyForecast.dias_restantes} dias restantes</span>
+                    )}
+                  </>
+                )}
+              </CardDescription>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  const next = new Date(forecastMonth);
+                  next.setMonth(next.getMonth() + 1);
+                  // Limit to 6 months in the future
+                  const maxDate = new Date();
+                  maxDate.setMonth(maxDate.getMonth() + 6);
+                  if (next <= maxDate) setForecastMonth(next);
+                }}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className={`space-y-3 ${forecastLoading ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 border rounded-lg text-center">
                 <div className="text-base font-semibold text-success">
@@ -569,7 +635,7 @@ export default function DashboardPage() {
                 <div className="text-base font-semibold text-danger">
                   {formatCurrency(monthlyForecast.despesas_realizadas + monthlyForecast.despesas_previstas)}
                 </div>
-                <div className="text-xs text-muted-foreground">Despesas</div>
+                <div className="text-xs text-muted-foreground">Despesas (+ fixas)</div>
               </div>
             </div>
             <div className="space-y-1">

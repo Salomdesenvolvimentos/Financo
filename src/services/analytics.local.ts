@@ -63,8 +63,10 @@ export async function getFinancialSummary(
     .filter((t) => t.tipo === 'receita')
     .reduce((sum, t) => sum + Number(t.valor), 0);
 
+  // Faturas de cartão (is_fatura = true) são excluídas para evitar dupla
+  // contagem — as transações individuais do cartão já estão somadas.
   const despesa_total = transactions
-    .filter((t) => t.tipo === 'despesa')
+    .filter((t) => t.tipo === 'despesa' && !t.is_fatura)
     .reduce((sum, t) => sum + Number(t.valor), 0);
 
   const saldo = receita_total - despesa_total;
@@ -107,6 +109,8 @@ export async function getCategoryExpenses(
     transactions = allTransactions
       .filter(t => {
         const tDate = new Date(t.data_transacao);
+        // Excluir faturas de cartão das análises de categoria para evitar dupla contagem
+        if (t.is_fatura) return false;
         return t.tipo === tipo && tDate >= start && tDate <= end;
       })
       .map(t => ({
@@ -176,7 +180,8 @@ export async function getDailyExpenses(
   if (isLocalMode()) {
     transactions = localDB.getTransactions().filter(t => {
       const tDate = new Date(t.data_transacao);
-      return t.tipo === 'despesa' && tDate >= start && tDate <= end;
+      // Excluir faturas de cartão para evitar dupla contagem
+      return t.tipo === 'despesa' && !t.is_fatura && tDate >= start && tDate <= end;
     });
   } else {
     const { data } = await supabase
@@ -184,6 +189,7 @@ export async function getDailyExpenses(
       .select('*')
       .eq('user_id', userId)
       .eq('tipo', 'despesa')
+      .eq('is_fatura', false)
       .gte('data_transacao', start.toISOString().split('T')[0])
       .lte('data_transacao', end.toISOString().split('T')[0]);
     transactions = data || [];
@@ -227,7 +233,7 @@ export async function getWeekdayExpenses(
   if (isLocalMode()) {
     transactions = localDB.getTransactions().filter(t => {
       const tDate = new Date(t.data_transacao);
-      return t.tipo === 'despesa' && tDate >= start && tDate <= end;
+      return t.tipo === 'despesa' && !t.is_fatura && tDate >= start && tDate <= end;
     });
   } else {
     const { data } = await supabase
@@ -235,6 +241,7 @@ export async function getWeekdayExpenses(
       .select('*')
       .eq('user_id', userId)
       .eq('tipo', 'despesa')
+      .eq('is_fatura', false)
       .gte('data_transacao', start.toISOString().split('T')[0])
       .lte('data_transacao', end.toISOString().split('T')[0]);
     transactions = data || [];
@@ -322,8 +329,9 @@ export async function getMonthlyTrend(userId: string): Promise<MonthlyTrend[]> {
       .filter((t) => t.tipo === 'receita')
       .reduce((sum, t) => sum + Number(t.valor), 0);
 
+    // Excluir faturas de cartão para evitar dupla contagem na tendência mensal
     const despesa = transactions
-      .filter((t) => t.tipo === 'despesa')
+      .filter((t) => t.tipo === 'despesa' && !t.is_fatura)
       .reduce((sum, t) => sum + Number(t.valor), 0);
 
     result.push({

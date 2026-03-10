@@ -46,6 +46,14 @@ export interface Transaction {
   parcela_atual: number;
   grupo_parcela_id?: string;
   observacoes?: string;
+  /**
+   * Indica que esta transação é um pagamento de fatura de cartão de crédito.
+   * Quando true, ela NÃO é somada ao total de despesas para evitar dupla
+   * contagem (as transações individuais do cartão já estão contabilizadas).
+   */
+  is_fatura?: boolean;
+  /** Modalidade: compra à vista ou parcelada no crédito */
+  modalidade_pagamento?: 'a_vista' | 'credito';
   created_at: string;
   updated_at: string;
   // Dados relacionados (joins)
@@ -91,6 +99,10 @@ export interface TransactionFormData {
   parcelado: boolean;
   total_parcelas?: number;
   observacoes?: string;
+  /** Pagamento de fatura de cartão — exclui do total de despesas */
+  is_fatura?: boolean;
+  /** Modalidade: à vista ou crédito */
+  modalidade_pagamento?: 'a_vista' | 'credito';
 }
 
 export interface CategoryFormData {

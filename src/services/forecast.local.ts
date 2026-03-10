@@ -4,9 +4,13 @@
 // ============================================
 
 import { supabase } from '@/lib/supabase';
+import { localDB } from '@/lib/local-storage';
 import { getFixedExpensesByMonth } from './fixed-expenses.local';
 import { getFixedIncomeByMonth } from './fixed-income.local';
 import type { MonthlyForecast, ForecastAlert, CalendarEvent } from '@/types';
+
+const isLocalMode = () =>
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost:54321');
 
 // ============================================
 // Previsão Mensal Principal
@@ -34,20 +38,28 @@ export async function calculateMonthlyForecast(userId: string, year: number, mon
     const fixedIncome = fixedIncomeResult.data || [];
     const transactions = transactionsResult.data || [];
 
-    // Calcular valores reais (transações já ocorridas)
+    // Calcular valores reais (transações já ocorridas — status pago/vencido)
     const receitasRealizadas = transactions
-      .filter((t: any) => t.tipo === 'receita')
+      .filter((t: any) => t.tipo === 'receita' && t.status !== 'andamento')
       .reduce((sum: number, t: any) => sum + t.valor, 0);
 
+    // Despesas realizadas: excluir faturas (is_fatura) para evitar dupla contagem
     const despesasRealizadas = transactions
-      .filter((t: any) => t.tipo === 'despesa')
+      .filter((t: any) => t.tipo === 'despesa' && t.status !== 'andamento' && !t.is_fatura)
+      .reduce((sum: number, t: any) => sum + t.valor, 0);
+
+    // Despesas projetadas do mês: transações com status "andamento" (parcelas futuras importadas)
+    const despesasProjetadas = transactions
+      .filter((t: any) => t.tipo === 'despesa' && t.status === 'andamento' && !t.is_fatura)
       .reduce((sum: number, t: any) => sum + t.valor, 0);
 
     const saldoReal = receitasRealizadas - despesasRealizadas;
 
-    // Calcular valores previstos (gastos/rendas fixas)
+    // Calcular valores previstos (gastos/rendas fixas + parcelas projetadas)
     const receitasPrevistas = fixedIncome.reduce((sum: number, income: any) => sum + income.valor, 0);
-    const despesasPrevistas = fixedExpenses.reduce((sum: number, expense: any) => sum + expense.valor, 0);
+    const despesasPrevistas =
+      fixedExpenses.reduce((sum: number, expense: any) => sum + expense.valor, 0) +
+      despesasProjetadas;
 
     // Calcular projeção final
     const saldoPrevistoFinal = saldoReal + (receitasPrevistas - despesasPrevistas);
@@ -105,6 +117,12 @@ async function getMonthTransactions(userId: string, year: number, month: number)
   try {
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
     const monthEnd = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+
+    if (isLocalMode()) {
+      const all = localDB.getTransactions();
+      const data = all.filter((t) => t.data_transacao >= monthStart && t.data_transacao <= monthEnd);
+      return { data, error: null };
+    }
 
     const { data, error } = await supabase
       .from('transactions')

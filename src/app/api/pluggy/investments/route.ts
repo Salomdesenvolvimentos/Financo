@@ -10,10 +10,23 @@ export async function GET(req: NextRequest) {
 
   try {
     const apiKey = await getPluggyApiKey();
-    const res = await fetch(`https://api.pluggy.ai/investments?itemId=${itemId}`, {
-      headers: { 'X-API-KEY': apiKey },
-    });
-    return NextResponse.json(await res.json());
+
+    // Fetch all pages to avoid missing investments (e.g. caixinhas)
+    let allResults: any[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const res = await fetch(
+        `https://api.pluggy.ai/investments?itemId=${itemId}&page=${page}&pageSize=100`,
+        { headers: { 'X-API-KEY': apiKey } }
+      );
+      const data = await res.json();
+      allResults = allResults.concat(data.results ?? []);
+      totalPages = data.totalPages ?? 1;
+      page++;
+    } while (page <= totalPages);
+
+    return NextResponse.json({ results: allResults, total: allResults.length });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

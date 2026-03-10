@@ -48,6 +48,7 @@ import type {
   Category,
 } from '@/types';
 import { formatCurrency, formatDate, formatDateISO } from '@/lib/utils';
+import { isFaturaByDescription, analyzeFaturaMatch } from '@/lib/credit-card-utils';
 import { CategoryModal } from '@/components/category-modal';
 import {
   Plus,
@@ -57,6 +58,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -67,6 +69,9 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<TransactionFilters>({});
   const [searchTerm, setSearchTerm] = useState('');
+  // Separate month and year selectors (combine into filters.mes)
+  const [filterYear, setFilterYear] = useState<string>('');
+  const [filterMonth, setFilterMonth] = useState<string>('');
 
   // inline editing state for spreadsheet-like table
   const [editingCell, setEditingCell] = useState<
@@ -94,6 +99,8 @@ export default function TransactionsPage() {
     parcelado: false,
     total_parcelas: 1,
     observacoes: '',
+    is_fatura: false,
+    modalidade_pagamento: undefined,
   });
 
   // Carregar dados iniciais
@@ -257,6 +264,8 @@ export default function TransactionsPage() {
       parcelado: transaction.parcelado,
       total_parcelas: transaction.total_parcelas,
       observacoes: transaction.observacoes || '',
+      is_fatura: transaction.is_fatura || false,
+      modalidade_pagamento: transaction.modalidade_pagamento || undefined,
     });
     setDialogOpen(true);
   };
@@ -339,6 +348,29 @@ export default function TransactionsPage() {
     setLoading(false);
   };
 
+  // Marcar/desmarcar transação como fatura de cartão
+  const handleToggleFatura = async (transaction: Transaction) => {
+    const newValue = !transaction.is_fatura;
+    const { error } = await updateTransaction(transaction.id, { is_fatura: newValue } as any);
+    if (error) {
+      toast({
+        title: 'Erro ao atualizar transação',
+        description: error,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === transaction.id ? { ...t, is_fatura: newValue } : t))
+    );
+    toast({
+      title: newValue
+        ? '💳 Fatura marcada — excluída do total de despesas'
+        : 'Fatura desmarcada — valor voltará ao total de despesas',
+      variant: 'success',
+    });
+  };
+
   // Deletar TODAS as transações
   const handleDeleteAll = async () => {
     if (!confirm(`Tem certeza que deseja excluir TODAS as ${transactions.length} transações? Esta ação não pode ser desfeita!`)) return;
@@ -394,6 +426,25 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-4">
+
+      {/* Banner informativo sobre faturas excluídas */}
+      {(() => {
+        const faturas = transactions.filter((t) => t.is_fatura);
+        if (faturas.length === 0) return null;
+        const totalFatura = faturas.reduce((s, t) => s + Number(t.valor), 0);
+        return (
+          <div className="flex items-start gap-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+            <CreditCard className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <div>
+              <span className="font-semibold">{faturas.length} fatura{faturas.length > 1 ? 's' : ''} de cartão excluída{faturas.length > 1 ? 's' : ''} do total de despesas</span>
+              {' '}({formatCurrency(totalFatura)} no período filtrado).{' '}
+              As transações individuais do cartão já contabilizam esses gastos.
+              Use o botão <CreditCard className="inline h-3.5 w-3.5 mx-0.5" /> em cada linha para marcar/desmarcar.
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Barra de Controle */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         {/* Busca */}
@@ -482,20 +533,60 @@ export default function TransactionsPage() {
             </Select>
           </div>
 
-          <div className="min-w-[140px]">
-            <Label htmlFor="filter-month" className="text-xs text-muted-foreground mb-1 block">Mês/Ano</Label>
-            <Input
-              id="filter-month"
-              type="month"
-              value={filters.mes || ''}
-              onChange={(e) =>
-                setFilters({
-                  ...filters,
-                  mes: e.target.value || undefined,
-                })
-              }
-              className="h-9 text-sm"
-            />
+          <div className="min-w-[120px]">
+            <Label htmlFor="filter-year" className="text-xs text-muted-foreground mb-1 block">Ano</Label>
+            <Select
+              value={filterYear || 'all'}
+              onValueChange={(value) => {
+                const y = value === 'all' ? '' : value;
+                setFilterYear(y);
+                const m = filterMonth;
+                setFilters({ ...filters, mes: y && m ? `${y}-${m}` : undefined });
+              }}
+            >
+              <SelectTrigger id="filter-year" className="h-9 text-sm">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {Array.from({ length: 5 }, (_, i) => {
+                  const y = String(new Date().getFullYear() - 2 + i);
+                  return <SelectItem key={y} value={y}>{y}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[130px]">
+            <Label htmlFor="filter-month" className="text-xs text-muted-foreground mb-1 block">Mês</Label>
+            <Select
+              value={filterMonth || 'all'}
+              onValueChange={(value) => {
+                const m = value === 'all' ? '' : value;
+                setFilterMonth(m);
+                const y = filterYear;
+                setFilters({ ...filters, mes: y && m ? `${y}-${m}` : undefined });
+              }}
+            >
+              <SelectTrigger id="filter-month" className="h-9 text-sm">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="01">Janeiro</SelectItem>
+                <SelectItem value="02">Fevereiro</SelectItem>
+                <SelectItem value="03">Março</SelectItem>
+                <SelectItem value="04">Abril</SelectItem>
+                <SelectItem value="05">Maio</SelectItem>
+                <SelectItem value="06">Junho</SelectItem>
+                <SelectItem value="07">Julho</SelectItem>
+                <SelectItem value="08">Agosto</SelectItem>
+                <SelectItem value="09">Setembro</SelectItem>
+                <SelectItem value="10">Outubro</SelectItem>
+                <SelectItem value="11">Novembro</SelectItem>
+                <SelectItem value="12">Dezembro</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -553,6 +644,7 @@ export default function TransactionsPage() {
                     <th className="text-left py-3 px-6 font-medium text-sm">Tipo</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Categoria</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Cartão</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Modalidade</th>
                     <th className="text-right py-3 px-6 font-medium text-sm">Valor</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Data</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Status</th>
@@ -587,7 +679,18 @@ export default function TransactionsPage() {
                             autoFocus
                           />
                         ) : (
-                          <span className="text-sm font-medium">{transaction.descricao}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-medium">{transaction.descricao}</span>
+                            {transaction.is_fatura && (
+                              <span
+                                title="Pagamento de fatura — excluído do total de despesas para evitar dupla contagem"
+                                className="inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700"
+                              >
+                                <CreditCard className="h-2.5 w-2.5" />
+                                Fatura — excluída do total
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -697,6 +800,49 @@ export default function TransactionsPage() {
                           />
                         ) : (
                           <span className="text-sm">{transaction.forma_pagamento || '-'}</span>
+                        )}
+                      </td>
+
+                      {/* Modalidade editable (à vista / crédito) */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() =>
+                          setEditingCell({ id: transaction.id, field: 'modalidade_pagamento' })
+                        }
+                      >
+                        {editingCell?.id === transaction.id &&
+                        editingCell.field === 'modalidade_pagamento' ? (
+                          <Select
+                            value={editingValue || ''}
+                            onValueChange={(v) => {
+                              setEditingValue(v);
+                              handleInlineSave(transaction.id, 'modalidade_pagamento', v || undefined);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="a_vista">À Vista</SelectItem>
+                              <SelectItem value="credito">Crédito</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              transaction.modalidade_pagamento === 'credito'
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                : transaction.modalidade_pagamento === 'a_vista'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                : 'text-muted-foreground'
+                            }`}
+                          >
+                            {transaction.modalidade_pagamento === 'credito'
+                              ? 'Crédito'
+                              : transaction.modalidade_pagamento === 'a_vista'
+                              ? 'À Vista'
+                              : '-'}
+                          </span>
                         )}
                       </td>
 
@@ -815,6 +961,15 @@ export default function TransactionsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className={`h-8 w-8 ${transaction.is_fatura ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}
+                            title={transaction.is_fatura ? 'Desmarcar como Fatura de Cartão' : 'Marcar como Fatura de Cartão (evita dupla contagem)'}
+                            onClick={() => handleToggleFatura(transaction)}
+                          >
+                            <CreditCard className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={() => handleEditTransaction(transaction)}
                           >
@@ -911,9 +1066,17 @@ export default function TransactionsPage() {
               <Input
                 id="descricao"
                 value={formData.descricao}
-                onChange={(e) =>
-                  setFormData({ ...formData, descricao: e.target.value })
-                }
+                onChange={(e) => {
+                  const desc = e.target.value;
+                  const autoFatura =
+                    formData.tipo === 'despesa' &&
+                    isFaturaByDescription(desc, 'despesa');
+                  setFormData({
+                    ...formData,
+                    descricao: desc,
+                    is_fatura: autoFatura ? true : formData.is_fatura,
+                  });
+                }}
                 placeholder="Ex: Compra no supermercado"
               />
             </div>
@@ -1049,10 +1212,31 @@ export default function TransactionsPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, forma_pagamento: e.target.value })
                   }
-                  placeholder="Ex: Cartão, Dinheiro..."
+                  placeholder="Ex: Nubank, Santander..."
                 />
               </div>
             </div>
+
+            {/* Modalidade */}
+            {formData.tipo === 'despesa' && (
+              <div className="space-y-2">
+                <Label>Modalidade</Label>
+                <Select
+                  value={formData.modalidade_pagamento || ''}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, modalidade_pagamento: (v as any) || undefined })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="À vista ou Crédito?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="a_vista">À Vista</SelectItem>
+                    <SelectItem value="credito">Crédito</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Parcelado */}
             <div className="flex items-center space-x-2">
@@ -1067,6 +1251,34 @@ export default function TransactionsPage() {
               />
               <Label htmlFor="parcelado">Compra parcelada?</Label>
             </div>
+
+            {/* Fatura de Cartão */}
+            {formData.tipo === 'despesa' && (
+              <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="is_fatura"
+                    checked={!!formData.is_fatura}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_fatura: e.target.checked })
+                    }
+                    className="h-4 w-4 accent-amber-600"
+                  />
+                  <Label htmlFor="is_fatura" className="flex items-center gap-1.5 cursor-pointer">
+                    <CreditCard className="h-4 w-4 text-amber-600" />
+                    <span>Pagamento de fatura de cartão de crédito</span>
+                  </Label>
+                </div>
+                {formData.is_fatura && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 ml-6">
+                    ⚠️ Este valor <strong>não será somado ao total de despesas</strong> do mês.
+                    As transações individuais do cartão já estão contabilizadas, assim
+                    evitamos a dupla contagem.
+                  </p>
+                )}
+              </div>
+            )}
 
             {formData.parcelado && (
               <div className="space-y-2">

@@ -194,7 +194,8 @@ export default function ImportPage() {
     if (s.includes('LCI') || s.includes('LCA') || n.includes('lci') || n.includes('lca')) return 'lci_lca';
     if (s.includes('CDB') || n.includes('cdb')) return 'cdb';
     if (t === 'REAL_ESTATE' || s.includes('FII') || n.includes('fii')) return 'fii';
-    if (n.includes('poupan')) return 'poupanca';
+    // Caixinhas (Nubank savings boxes) and savings accounts come as type SAVINGS
+    if (t === 'SAVINGS' || n.includes('caixinha') || n.includes('poupan')) return 'poupanca';
     if (t === 'FIXED_INCOME') return 'cdb';
     return 'outro';
   }
@@ -216,17 +217,55 @@ export default function ImportPage() {
           const valor = Math.abs(Number(tx.amount));
           if (!valor) continue;
           const description = tx.merchant?.name || tx.description || 'Transação';
+
+          // Detectar modalidade: crédito vs à vista
+          // Pluggy: creditCardMetadata indica crédito; paymentType também pode ajudar
+          const isCredito =
+            !!tx.creditCardMetadata ||
+            tx.paymentData?.paymentMethod === 'CREDIT_CARD' ||
+            (account?.type === 'CREDIT');
+          const modalidade: 'a_vista' | 'credito' = isCredito ? 'credito' : 'a_vista';
+
+          // Detectar parcelamento (Pluggy fornece installments.number e installments.total)
+          const installmentNumber: number = tx.creditCardMetadata?.installmentNumber ?? tx.installments?.number ?? 1;
+          const installmentTotal: number = tx.creditCardMetadata?.totalInstallments ?? tx.installments?.total ?? 1;
+          const isParcelado = installmentTotal > 1;
+
+          const txDate = tx.date ? tx.date.split('T')[0] : formatDateISO(new Date());
+
           await createTransaction({
             descricao: description.substring(0, 100),
             tipo,
             categoria_id: findCategory(description),
             valor,
-            data_transacao: tx.date ? tx.date.split('T')[0] : formatDateISO(new Date()),
-            responsavel: user.nome || user.email,
+            data_transacao: txDate,
+            responsavel: user!.nome || user!.email,
             status: 'pago',
-            parcelado: false,
-            total_parcelas: 1,
+            parcelado: isParcelado,
+            total_parcelas: installmentTotal,
+            modalidade_pagamento: modalidade,
           });
+
+          // Se parcelado, criar as parcelas futuras ainda não lançadas
+          if (isParcelado && tipo === 'despesa' && installmentNumber < installmentTotal) {
+            for (let p = installmentNumber + 1; p <= installmentTotal; p++) {
+              const futureDate = new Date(txDate);
+              futureDate.setMonth(futureDate.getMonth() + (p - installmentNumber));
+              await createTransaction({
+                descricao: `${description.substring(0, 80)} (${p}/${installmentTotal})`,
+                tipo: 'despesa',
+                categoria_id: findCategory(description),
+                valor,
+                data_transacao: formatDateISO(futureDate),
+                responsavel: user!.nome || user!.email,
+                status: 'andamento',
+                parcelado: true,
+                total_parcelas: installmentTotal,
+                modalidade_pagamento: 'credito',
+              });
+            }
+          }
+
           total++;
         }
       }
@@ -240,6 +279,9 @@ export default function ImportPage() {
           const invData = await invRes.json();
           const invs: any[] = invData.results ?? invData.investments ?? [];
           for (const inv of invs) {
+            // Skip investments that are closed/redeemed
+            const status = (inv.status ?? '').toUpperCase();
+            if (status === 'CLOSED' || status === 'REDEEMED') continue;
             // Pluggy field mapping:
             // FIXED_INCOME: amount = applied amount, balance = redemption value (with earnings)
             // EQUITY/ETF: amount = current market value (no cost basis from API)
@@ -464,6 +506,12 @@ export default function ImportPage() {
           parcelado: false,
           total_parcelas: 1,
           forma_pagamento: row['forma_pagamento'] || undefined,
+          modalidade_pagamento: row['forma_pagamento']?.toLowerCase().includes('créd') ||
+            row['forma_pagamento']?.toLowerCase().includes('cred')
+              ? 'credito'
+              : row['forma_pagamento']
+              ? 'a_vista'
+              : undefined,
         });
 
         // Salvar regra de aprendizado
