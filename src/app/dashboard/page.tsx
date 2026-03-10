@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import {
   Card,
@@ -44,9 +45,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
-  Trophy,
-  TriangleAlert,
+  Pencil,
+  Save,
+  X,
+  CreditCard,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import {
   LineChart,
   Line,
@@ -62,6 +66,39 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+
+// ============================================
+// Layout do Dashboard — configurável pelo usuário
+// ============================================
+type CardLayout = {
+  id: string;
+  label: string;
+  colSpan: 1 | 2 | 3 | 4;
+  height: 'auto' | 'md' | 'lg' | 'xl';
+  order: number;
+};
+
+const LAYOUT_KEY = 'financo_dashboard_layout';
+const DEFAULT_CARD_LAYOUTS: CardLayout[] = [
+  { id: 'health',     label: 'Saúde Financeira',       colSpan: 2, height: 'auto', order: 0 },
+  { id: 'forecast',   label: 'Previsão Financeira',     colSpan: 2, height: 'auto', order: 1 },
+  { id: 'categories', label: 'Despesas por Categoria',  colSpan: 2, height: 'auto', order: 2 },
+  { id: 'trend',      label: 'Tendência 6 Meses',       colSpan: 2, height: 'auto', order: 3 },
+  { id: 'daily',      label: 'Gastos por Dia',          colSpan: 4, height: 'auto', order: 4 },
+  { id: 'faturas',    label: 'Faturas de Cartão',       colSpan: 4, height: 'auto', order: 5 },
+];
+const COL_SPAN_MAP: Record<number, string> = {
+  1: 'col-span-4 lg:col-span-1',
+  2: 'col-span-4 lg:col-span-2',
+  3: 'col-span-4 lg:col-span-3',
+  4: 'col-span-4 lg:col-span-4',
+};
+const HEIGHT_MAP: Record<string, string> = {
+  auto: '',
+  md: 'min-h-64',
+  lg: 'min-h-96',
+  xl: 'min-h-[32rem]',
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -87,7 +124,54 @@ export default function DashboardPage() {
 
   // Anomaly detection
   const [anomalies, setAnomalies] = useState<{ categoria: string; media: number; atual: number; delta: number }[]>([]);
+  // Faturas de cartão
+  const [pendingFaturas, setPendingFaturas] = useState<any[]>([]);
+  // Layout editor
+  const [editMode, setEditMode] = useState(false);
+  const [layouts, setLayouts] = useState<CardLayout[]>(DEFAULT_CARD_LAYOUTS);
+  const [layoutSnapshot, setLayoutSnapshot] = useState<CardLayout[]>(DEFAULT_CARD_LAYOUTS);
 
+
+  // Carregar layout salvo
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LAYOUT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as CardLayout[];
+        // Merge with defaults to handle new cards added in future
+        const merged = DEFAULT_CARD_LAYOUTS.map(def => {
+          const saved_ = parsed.find(p => p.id === def.id);
+          return saved_ ? { ...def, ...saved_ } : def;
+        });
+        setLayouts(merged);
+        setLayoutSnapshot(merged);
+      }
+    } catch {}
+  }, []);
+
+  // Layout helpers
+  const updateLayout = (id: string, patch: Partial<CardLayout>) => {
+    setLayouts(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
+  };
+  const moveCard = (id: string, dir: -1 | 1) => {
+    setLayouts(prev => {
+      const sorted = [...prev].sort((a, b) => a.order - b.order);
+      const idx = sorted.findIndex(l => l.id === id);
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= sorted.length) return prev;
+      const next = prev.map(l => ({ ...l }));
+      const a = next.find(l => l.id === sorted[idx].id)!;
+      const b = next.find(l => l.id === sorted[swapIdx].id)!;
+      [a.order, b.order] = [b.order, a.order];
+      return next;
+    });
+  };
+  const saveLayout = () => {
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layouts)); } catch {}
+    window.location.reload();
+  };
+  const cancelEdit = () => { setLayouts(layoutSnapshot); setEditMode(false); };
+  const startEdit = () => { setLayoutSnapshot([...layouts]); setEditMode(true); };
 
   // Função para buscar dados por cartão
   const getCardData = async (userId: string, month: Date) => {
@@ -307,6 +391,21 @@ export default function DashboardPage() {
         setAnomalies(detectedAnomalies.slice(0, 3));
       }
 
+      // Buscar faturas de cartão (is_fatura = true) do mês
+      if (user) {
+        const monthStr = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
+        const lastDay = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate();
+        const { data: faturasRows } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_fatura', true)
+          .gte('data_transacao', `${monthStr}-01`)
+          .lte('data_transacao', `${monthStr}-${String(lastDay).padStart(2, '0')}`)
+          .order('data_transacao', { ascending: true });
+        setPendingFaturas(faturasRows || []);
+      }
+
       setLoading(false);
     }
 
@@ -352,6 +451,25 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Botão de edição de layout */}
+          {editMode ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="default" onClick={saveLayout}>
+                <Save className="h-4 w-4 mr-1" />
+                Salvar
+              </Button>
+              <Button size="sm" variant="outline" onClick={cancelEdit}>
+                <X className="h-4 w-4 mr-1" />
+                Cancelar
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={startEdit}>
+              <Pencil className="h-4 w-4 mr-1" />
+              Layout
+            </Button>
+          )}
+
           {/* Controles de Visualização */}
           <div className="flex gap-2">
             <Button
@@ -500,407 +618,417 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Saúde Financeira + Previsão lado a lado */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Saúde Financeira */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className={`text-base flex items-center gap-2 ${
-                (financialScore as any).status === 'crítico' ? 'text-danger' : ''
-              }`}>
-                Saúde Financeira
+      {/* Configurável — grade de cards */}
+      {editMode && (
+        <div className="flex items-center gap-2 p-3 border border-primary/40 bg-primary/5 rounded-lg text-sm">
+          <Pencil className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-muted-foreground">Modo de edição: ajuste a <strong>largura</strong> (1–4 colunas), a <strong>altura</strong> e a <strong>posição</strong> ← → de cada card. Clique <strong>Salvar</strong> para aplicar.</span>
+        </div>
+      )}
+      <div className="grid grid-cols-4 gap-4">
+        {([...layouts].sort((a, b) => a.order - b.order)).map((layout) => {
+          const colClass = COL_SPAN_MAP[layout.colSpan];
+          const heightClass = HEIGHT_MAP[layout.height];
+          let section: ReactNode = null;
+
+          /* ─── Saúde Financeira ─────────────────────────── */
+          if (layout.id === 'health') section = (
+            <Card className="h-full">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className={`text-base flex items-center gap-2 ${
+                    (financialScore as any).status === 'crítico' ? 'text-danger' : ''
+                  }`}>
+                    Saúde Financeira
                 {(financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 && (
-                  <AlertCircle className="h-4 w-4 animate-pulse" />
-                )}
-              </CardTitle>
-              <select
-                value={healthThreshold}
-                onChange={(e) => setHealthThreshold(parseInt(e.target.value))}
-                className="px-2 py-1 border border-input bg-background text-foreground rounded text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value={10}>Meta 10%</option>
-                <option value={20}>Meta 20%</option>
-                <option value={30}>Meta 30%</option>
-                <option value={40}>Meta 40%</option>
-                <option value={50}>Meta 50%</option>
-              </select>
-            </div>
-            <CardDescription className={`${
-              (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0
-                ? 'text-danger font-medium'
-                : ''
-            }`}>
-              {financialScore.mensagem}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="relative w-20 h-20 flex-shrink-0">
-                <div className="w-20 h-20 rounded-full border-6 border-muted flex items-center justify-center">
-                  <div
-                    className={`absolute inset-0 rounded-full border-6 transition-all ${
-                      (financialScore as any).status === 'excelente' ? 'border-success border-t-transparent border-r-transparent' :
-                      (financialScore as any).status === 'bom' ? 'border-primary border-t-transparent border-r-transparent' :
-                      (financialScore as any).status === 'alerta' ? 'border-warning border-t-transparent border-r-transparent' :
-                      'border-danger border-t-transparent border-r-transparent animate-pulse'
-                    }`}
-                    style={{ transform: `rotate(${(financialScore.score / 100) * 360 - 90}deg)` }}
-                  />
-                  <div className="relative z-10 text-center">
-                    <div className={`text-xl font-bold ${
-                      (financialScore as any).status === 'crítico' ? 'text-danger' : ''
-                    }`}>{financialScore.score}</div>
-                    <div className="text-[10px] text-muted-foreground">pts</div>
+                    <AlertCircle className="h-4 w-4 animate-pulse" />
+                  )}
+                  </CardTitle>
+                  <select
+                    value={healthThreshold}
+                    onChange={(e) => setHealthThreshold(parseInt(e.target.value))}
+                    className="px-2 py-1 border border-input bg-background text-foreground rounded text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value={10}>Meta 10%</option>
+                    <option value={20}>Meta 20%</option>
+                    <option value={30}>Meta 30%</option>
+                    <option value={40}>Meta 40%</option>
+                    <option value={50}>Meta 50%</option>
+                  </select>
+                </div>
+                <CardDescription className={`${
+                  (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0
+                    ? 'text-danger font-medium' : ''
+                }`}>
+                  {financialScore.mensagem}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative w-20 h-20 flex-shrink-0">
+                    <div className="w-20 h-20 rounded-full border-6 border-muted flex items-center justify-center">
+                      <div className={`absolute inset-0 rounded-full border-6 transition-all ${
+                        (financialScore as any).status === 'excelente' ? 'border-success border-t-transparent border-r-transparent' :
+                        (financialScore as any).status === 'bom' ? 'border-primary border-t-transparent border-r-transparent' :
+                        (financialScore as any).status === 'alerta' ? 'border-warning border-t-transparent border-r-transparent' :
+                        'border-danger border-t-transparent border-r-transparent animate-pulse'
+                      }`} style={{ transform: `rotate(${(financialScore.score / 100) * 360 - 90}deg)` }} />
+                      <div className="relative z-10 text-center">
+                        <div className={`text-xl font-bold ${(financialScore as any).status === 'crítico' ? 'text-danger' : ''}`}>{financialScore.score}</div>
+                        <div className="text-[10px] text-muted-foreground">pts</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Status</span>
+                      <span className={`font-medium capitalize ${
+                        (financialScore as any).status === 'excelente' ? 'text-success' :
+                        (financialScore as any).status === 'bom' ? 'text-primary' :
+                        (financialScore as any).status === 'alerta' ? 'text-warning' : 'text-danger'
+                      }`}>{(financialScore as any).status}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Economia</span>
+                      <span className="font-medium">{(financialScore as any).percentualEconomia?.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Meta</span>
+                      <span className="font-medium">{healthThreshold}%</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full transition-all ${
+                          (financialScore as any).status === 'excelente' ? 'bg-success' :
+                          (financialScore as any).status === 'bom' ? 'bg-primary' :
+                          (financialScore as any).status === 'alerta' ? 'bg-warning' : 'bg-danger'
+                        }`} style={{ width: `${Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100)}%` }} />
+                      </div>
+                      <p className="text-xs text-right text-muted-foreground">
+                        {Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100).toFixed(0)}% da meta
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex-1 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className={`font-medium capitalize ${
-                    (financialScore as any).status === 'excelente' ? 'text-success' :
-                    (financialScore as any).status === 'bom' ? 'text-primary' :
-                    (financialScore as any).status === 'alerta' ? 'text-warning' :
-                    'text-danger'
-                  }`}>{(financialScore as any).status}</span>
+              </CardContent>
+            </Card>
+          );
+
+          /* ─── Previsão Financeira ─────────────────────── */
+          else if (layout.id === 'forecast') section = (
+            <Card className="h-full">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className={`text-base ${
+                    monthlyForecast.status === 'critico' ? 'text-danger' :
+                    monthlyForecast.status === 'alerta' ? 'text-warning' : ''
+                  }`}>Previsão Financeira</CardTitle>
+                  <div className={`text-xl font-bold ${monthlyForecast.saldo_previsto_final >= 0 ? 'text-success' : 'text-danger'}`}>
+                    {formatCurrency(monthlyForecast.saldo_previsto_final)}
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Economia</span>
-                  <span className="font-medium">{(financialScore as any).percentualEconomia?.toFixed(1)}%</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => {
+                    const prev = new Date(forecastMonth); prev.setMonth(prev.getMonth() - 1);
+                    const minDate = new Date(); minDate.setMonth(minDate.getMonth() - 12);
+                    if (prev >= minDate) setForecastMonth(prev);
+                  }}><ChevronLeft className="h-3 w-3" /></Button>
+                  <CardDescription className="flex-1 text-center text-xs">
+                    {forecastLoading ? <span className="animate-pulse">Carregando...</span> : (
+                      <>{monthlyForecast.mes_nome} {monthlyForecast.ano}
+                        {forecastMonth.getMonth() !== new Date().getMonth() || forecastMonth.getFullYear() !== new Date().getFullYear()
+                          ? <span className="ml-1 text-primary font-medium">(projeção)</span>
+                          : <span className="ml-1">· {monthlyForecast.dias_restantes} dias restantes</span>}
+                      </>
+                    )}
+                  </CardDescription>
+                  <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => {
+                    const next = new Date(forecastMonth); next.setMonth(next.getMonth() + 1);
+                    const maxDate = new Date(); maxDate.setMonth(maxDate.getMonth() + 6);
+                    if (next <= maxDate) setForecastMonth(next);
+                  }}><ChevronRight className="h-3 w-3" /></Button>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Meta</span>
-                  <span className="font-medium">{healthThreshold}%</span>
+              </CardHeader>
+              <CardContent className={`space-y-3 ${forecastLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 border rounded-lg text-center">
+                    <div className="text-base font-semibold text-success">{formatCurrency(monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas)}</div>
+                    <div className="text-xs text-muted-foreground">Receitas</div>
+                  </div>
+                  <div className="p-3 border rounded-lg text-center">
+                    <div className="text-base font-semibold text-danger">{formatCurrency(monthlyForecast.despesas_realizadas + monthlyForecast.despesas_previstas)}</div>
+                    <div className="text-xs text-muted-foreground">Despesas (+ fixas)</div>
+                  </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all ${
-                        (financialScore as any).status === 'excelente' ? 'bg-success' :
-                        (financialScore as any).status === 'bom' ? 'bg-primary' :
-                        (financialScore as any).status === 'alerta' ? 'bg-warning' :
-                        'bg-danger'
-                      }`}
-                      style={{ width: `${Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100)}%` }}
-                    />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Progresso do mês</span>
+                    <span>{Math.round(((30 - monthlyForecast.dias_restantes) / 30) * 100)}%</span>
                   </div>
-                  <p className="text-xs text-right text-muted-foreground">
-                    {Math.min(100, ((financialScore as any).percentualEconomia / healthThreshold) * 100).toFixed(0)}% da meta
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full transition-all ${
+                      monthlyForecast.status === 'critico' ? 'bg-danger' :
+                      monthlyForecast.status === 'alerta' ? 'bg-warning' : 'bg-success'
+                    }`} style={{ width: `${Math.min(100, ((30 - monthlyForecast.dias_restantes) / 30) * 100)}%` }} />
+                  </div>
+                </div>
+                {forecastAlerts.slice(0, 2).map((alert, index) => (
+                  <div key={index} className={`p-2 rounded-lg border text-xs flex items-start gap-2 ${
+                    alert.nivel === 'critico' ? 'border-danger/30 bg-danger/10 text-danger' :
+                    alert.nivel === 'alerta' ? 'border-warning/30 bg-warning/10 text-warning' :
+                    'border-primary/30 bg-primary/10 text-primary'
+                  }`}>
+                    <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                    <span>{alert.mensagem}</span>
+                  </div>
+                ))}
+                <div className="border-t pt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Zap className="h-3 w-3 text-primary" />
+                    Simulador — e se eu gastar mais este mês?
                   </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Previsão do Mês */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className={`text-base ${
-                monthlyForecast.status === 'critico' ? 'text-danger' :
-                monthlyForecast.status === 'alerta' ? 'text-warning' : ''
-              }`}>
-                Previsão Financeira
-              </CardTitle>
-              <div className={`text-xl font-bold ${
-                monthlyForecast.saldo_previsto_final >= 0 ? 'text-success' : 'text-danger'
-              }`}>
-                {formatCurrency(monthlyForecast.saldo_previsto_final)}
-              </div>
-            </div>
-            {/* Month navigation */}
-            <div className="flex items-center gap-2 mt-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => {
-                  const prev = new Date(forecastMonth);
-                  prev.setMonth(prev.getMonth() - 1);
-                  // Don't go more than 12 months in the past
-                  const minDate = new Date();
-                  minDate.setMonth(minDate.getMonth() - 12);
-                  if (prev >= minDate) setForecastMonth(prev);
-                }}
-              >
-                <ChevronLeft className="h-3 w-3" />
-              </Button>
-              <CardDescription className="flex-1 text-center text-xs">
-                {forecastLoading ? (
-                  <span className="animate-pulse">Carregando...</span>
-                ) : (
-                  <>
-                    {monthlyForecast.mes_nome} {monthlyForecast.ano}
-                    {forecastMonth.getMonth() !== new Date().getMonth() ||
-                    forecastMonth.getFullYear() !== new Date().getFullYear() ? (
-                      <span className="ml-1 text-primary font-medium">(projeção)</span>
-                    ) : (
-                      <span className="ml-1">· {monthlyForecast.dias_restantes} dias restantes</span>
-                    )}
-                  </>
-                )}
-              </CardDescription>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => {
-                  const next = new Date(forecastMonth);
-                  next.setMonth(next.getMonth() + 1);
-                  // Limit to 6 months in the future
-                  const maxDate = new Date();
-                  maxDate.setMonth(maxDate.getMonth() + 6);
-                  if (next <= maxDate) setForecastMonth(next);
-                }}
-              >
-                <ChevronRight className="h-3 w-3" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className={`space-y-3 ${forecastLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 border rounded-lg text-center">
-                <div className="text-base font-semibold text-success">
-                  {formatCurrency(monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas)}
-                </div>
-                <div className="text-xs text-muted-foreground">Receitas</div>
-              </div>
-              <div className="p-3 border rounded-lg text-center">
-                <div className="text-base font-semibold text-danger">
-                  {formatCurrency(monthlyForecast.despesas_realizadas + monthlyForecast.despesas_previstas)}
-                </div>
-                <div className="text-xs text-muted-foreground">Despesas (+ fixas)</div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Progresso do mês</span>
-                <span>{Math.round(((30 - monthlyForecast.dias_restantes) / 30) * 100)}%</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full transition-all ${
-                    monthlyForecast.status === 'critico' ? 'bg-danger' :
-                    monthlyForecast.status === 'alerta' ? 'bg-warning' : 'bg-success'
-                  }`}
-                  style={{ width: `${Math.min(100, ((30 - monthlyForecast.dias_restantes) / 30) * 100)}%` }}
-                />
-              </div>
-            </div>
-            {forecastAlerts.slice(0, 2).map((alert, index) => (
-              <div
-                key={index}
-                className={`p-2 rounded-lg border text-xs flex items-start gap-2 ${
-                  alert.nivel === 'critico' ? 'border-danger/30 bg-danger/10 text-danger' :
-                  alert.nivel === 'alerta' ? 'border-warning/30 bg-warning/10 text-warning' :
-                  'border-primary/30 bg-primary/10 text-primary'
-                }`}
-              >
-                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                <span>{alert.mensagem}</span>
-              </div>
-            ))}
-
-            {/* Simulador E se...? */}
-            <div className="border-t pt-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Zap className="h-3 w-3 text-primary" />
-                Simulador — e se eu gastar mais este mês?
-              </p>
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(500, Math.round((monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas) * 0.5))}
-                  step={50}
-                  value={simExtraExpense}
-                  onChange={(e) => setSimExtraExpense(Number(e.target.value))}
-                  className="flex-1"
-                />
-                <span className="text-xs font-semibold w-20 text-right">
-                  {formatCurrency(simExtraExpense)}
-                </span>
-              </div>
-              {(() => {
-                const baseReceita = monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas;
-                const baseDespesa = monthlyForecast.despesas_realizadas + monthlyForecast.despesas_previstas;
-                const simDespesa = baseDespesa + simExtraExpense;
-                const simSaldo = baseReceita - simDespesa;
-                const simEco = baseReceita > 0 ? (simSaldo / baseReceita) * 100 : 0;
-                const simScore = calculateCustomHealthScore(
-                  { receita_total: baseReceita, despesa_total: simDespesa, saldo: simSaldo },
-                  healthThreshold
-                );
-                const scoreDiff = simScore ? simScore.score - financialScore.score : 0;
-                return (
-                  <div className="rounded-lg border p-2.5 space-y-1.5 bg-muted/30 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Despesa total (c/ fixas)</span>
-                      <span className="font-medium text-danger">{formatCurrency(simDespesa)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Saldo previsto</span>
-                      <span className={`font-medium ${simSaldo >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {formatCurrency(simSaldo)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Saúde financeira</span>
-                      <span className={`font-medium ${scoreDiff < 0 ? 'text-danger' : 'text-muted-foreground'}`}>
-                        {simScore?.score ?? financialScore.score} pts
-                        {scoreDiff !== 0 && (
-                          <span className="ml-1">({scoreDiff > 0 ? '+' : ''}{scoreDiff})</span>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input type="range" min={0}
+                      max={Math.max(500, Math.round((monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas) * 0.5))}
+                      step={50} value={simExtraExpense}
+                      onChange={(e) => setSimExtraExpense(Number(e.target.value))} className="flex-1" />
+                    <span className="text-xs font-semibold w-20 text-right">{formatCurrency(simExtraExpense)}</span>
+                  </div>
+                  {(() => {
+                    const baseReceita = monthlyForecast.receitas_realizadas + monthlyForecast.receitas_previstas;
+                    const baseDespesa = monthlyForecast.despesas_realizadas + monthlyForecast.despesas_previstas;
+                    const simDespesa = baseDespesa + simExtraExpense;
+                    const simSaldo = baseReceita - simDespesa;
+                    const simEco = baseReceita > 0 ? (simSaldo / baseReceita) * 100 : 0;
+                    const simScore = calculateCustomHealthScore({ receita_total: baseReceita, despesa_total: simDespesa, saldo: simSaldo }, healthThreshold);
+                    const scoreDiff = simScore ? simScore.score - financialScore.score : 0;
+                    return (
+                      <div className="rounded-lg border p-2.5 space-y-1.5 bg-muted/30 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Despesa total (c/ fixas)</span>
+                          <span className="font-medium text-danger">{formatCurrency(simDespesa)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Saldo previsto</span>
+                          <span className={`font-medium ${simSaldo >= 0 ? 'text-success' : 'text-danger'}`}>{formatCurrency(simSaldo)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Saúde financeira</span>
+                          <span className={`font-medium ${scoreDiff < 0 ? 'text-danger' : 'text-muted-foreground'}`}>
+                            {simScore?.score ?? financialScore.score} pts
+                            {scoreDiff !== 0 && <span className="ml-1">({scoreDiff > 0 ? '+' : ''}{scoreDiff})</span>}
+                          </span>
+                        </div>
+                        {simScore && (
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full transition-all ${
+                              simScore.status === 'excelente' ? 'bg-success' : simScore.status === 'bom' ? 'bg-primary' :
+                              simScore.status === 'alerta' ? 'bg-warning' : 'bg-danger'
+                            }`} style={{ width: `${Math.min(100, (simEco / healthThreshold) * 100)}%` }} />
+                          </div>
                         )}
-                      </span>
-                    </div>
-                    {simScore && (
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${
-                            simScore.status === 'excelente' ? 'bg-success' :
-                            simScore.status === 'bom' ? 'bg-primary' :
-                            simScore.status === 'alerta' ? 'bg-warning' : 'bg-danger'
-                          }`}
-                          style={{ width: `${Math.min(100, (simEco / healthThreshold) * 100)}%` }}
-                        />
+                      </div>
+                    );
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          );
+
+          /* ─── Despesas por Categoria ─────────────────── */
+          else if (layout.id === 'categories') section = (
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Despesas por Categoria</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {categoryExpenses.length === 0 ? (
+                  <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Sem dados para o período</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={categoryExpenses} dataKey="total" nameKey="categoria_nome"
+                        cx="50%" cy="50%" outerRadius={80} label={(entry) => `${entry.percentual}%`} labelLine={false}>
+                        {categoryExpenses.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.categoria_cor || COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          );
+
+          /* ─── Tendência 6 Meses ──────────────────────── */
+          else if (layout.id === 'trend') section = (
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Tendência — Últimos 6 Meses</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {monthlyTrend.length === 0 ? (
+                  <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Sem dados suficientes</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={monthlyTrend}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
+                      <Line type="monotone" dataKey="receita" stroke="#10B981" name="Receita" dot={false} strokeWidth={2} />
+                      <Line type="monotone" dataKey="despesa" stroke="#EF4444" name="Despesa" dot={false} strokeWidth={2} />
+                      <Line type="monotone" dataKey="saldo" stroke="#3B82F6" name="Saldo" dot={false} strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          );
+
+          /* ─── Gastos por Dia ─────────────────────────── */
+          else if (layout.id === 'daily') section = (
+            <Card className="h-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Gastos por Dia do Mês</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {dailyExpenses.length === 0 ? (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">Sem dados para o período</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={dailyExpenses}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Bar dataKey="total" fill="#3B82F6" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          );
+
+          /* ─── Faturas de Cartão ──────────────────────── */
+          else if (layout.id === 'faturas') section = (
+            <Card className="h-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                  Faturas de Cartão
+                </CardTitle>
+                <CardDescription>Gastos por cartão de crédito e faturas do mês.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Gasto por cartão */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Gasto por cartão</p>
+                    {cardData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-20 gap-1.5 text-muted-foreground">
+                        <CreditCard className="h-6 w-6 opacity-40" />
+                        <p className="text-sm">Nenhum gasto por cartão este mês</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {cardData.map((card: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/20">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CreditCard className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm font-medium truncate">{card.name}</span>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">({card.count}x)</span>
+                            </div>
+                            <span className={`text-sm font-bold ml-2 whitespace-nowrap ${card.total < 0 ? 'text-danger' : 'text-success'}`}>
+                              {formatCurrency(Math.abs(card.total))}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between pt-1 border-t text-xs">
+                          <span className="text-muted-foreground">Total no cartão</span>
+                          <span className="font-bold text-danger">
+                            {formatCurrency(cardData.reduce((sum: number, c: any) => sum + (c.total < 0 ? Math.abs(c.total) : 0), 0))}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
-                );
-              })()}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Gráficos: Categorias + Tendência lado a lado */}
-      <div className="grid gap-4 md:grid-cols-5">
-        {/* Pie: Despesas por categoria */}
-        <Card className="md:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Despesas por Categoria</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {categoryExpenses.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-                Sem dados para o período
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={categoryExpenses}
-                    dataKey="total"
-                    nameKey="categoria_nome"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={(entry) => `${entry.percentual}%`}
-                    labelLine={false}
-                  >
-                    {categoryExpenses.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.categoria_cor || COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Line: Tendência 6 meses */}
-        <Card className="md:col-span-3">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Tendência — Últimos 6 Meses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {monthlyTrend.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-                Sem dados suficientes
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={monthlyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
-                  <Line type="monotone" dataKey="receita" stroke="#10B981" name="Receita" dot={false} strokeWidth={2} />
-                  <Line type="monotone" dataKey="despesa" stroke="#EF4444" name="Despesa" dot={false} strokeWidth={2} />
-                  <Line type="monotone" dataKey="saldo" stroke="#3B82F6" name="Saldo" dot={false} strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bar: Gastos diários */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Gastos por Dia do Mês</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {dailyExpenses.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-              Sem dados para o período
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={dailyExpenses}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                <Bar dataKey="total" fill="#3B82F6" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Detecção de Anomalias */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-              <TriangleAlert className="h-4 w-4 text-warning" />
-              Detecção de Anomalias
-            </CardTitle>
-            <CardDescription>
-              Categorias com gasto acima do esperado em relação aos últimos meses.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {anomalies.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-28 gap-2 text-muted-foreground">
-                <Trophy className="h-8 w-8 text-success opacity-70" />
-                <p className="text-sm">Nenhuma anomalia detectada. Continue assim!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {anomalies.map((a, i) => (
-                  <div key={i} className="flex items-start gap-3 p-2.5 border border-warning/30 bg-warning/5 rounded-lg">
-                    <TriangleAlert className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{a.categoria}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Média histórica: {formatCurrency(a.media)} · Atual: {formatCurrency(a.atual)}
-                      </p>
-                    </div>
-                    <span className="text-xs font-semibold text-warning whitespace-nowrap">
-                      +{a.delta}%
-                    </span>
+                  {/* Faturas (is_fatura = true) */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Faturas</p>
+                    {pendingFaturas.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-20 gap-1.5 text-muted-foreground">
+                        <CreditCard className="h-6 w-6 opacity-40" />
+                        <p className="text-sm">Nenhuma fatura registrada este mês</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {pendingFaturas.map((f: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-2.5 border rounded-lg">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{f.descricao}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-muted-foreground">{f.data_transacao}</span>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                  f.status === 'pago' ? 'bg-success/10 text-success' :
+                                  f.status === 'vencido' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'
+                                }`}>{f.status}</span>
+                              </div>
+                            </div>
+                            <span className={`text-sm font-bold ml-3 whitespace-nowrap ${f.status === 'pago' ? 'text-success' : 'text-danger'}`}>
+                              {formatCurrency(f.valor)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-      </Card>
+                </div>
+              </CardContent>
+            </Card>
+          );
+
+          return (
+            <div key={layout.id} className={`${colClass} ${heightClass}`}>
+              {section}
+              {editMode && (
+                <div className="mt-1 border rounded-lg bg-muted/40 px-3 py-2 flex items-center flex-wrap gap-2 text-xs">
+                  <span className="font-medium text-muted-foreground truncate max-w-[8rem]">{layout.label}</span>
+                  <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                    <span className="text-muted-foreground text-[10px]">W:</span>
+                    {([1, 2, 3, 4] as const).map(n => (
+                      <button key={n} onClick={() => updateLayout(layout.id, { colSpan: n })}
+                        className={`w-5 h-5 text-[10px] rounded border flex items-center justify-center transition-colors ${
+                          layout.colSpan === n ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent border-input'
+                        }`}>{n}</button>
+                    ))}
+                    <div className="w-px h-4 bg-border" />
+                    <span className="text-muted-foreground text-[10px]">H:</span>
+                    {(['auto', 'md', 'lg', 'xl'] as const).map(h => (
+                      <button key={h} onClick={() => updateLayout(layout.id, { height: h })}
+                        className={`px-1.5 h-5 text-[10px] rounded border flex items-center justify-center transition-colors ${
+                          layout.height === h ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent border-input'
+                        }`}>{h}</button>
+                    ))}
+                    <div className="w-px h-4 bg-border" />
+                    <button onClick={() => moveCard(layout.id, -1)} title="Mover para antes"
+                      className="p-0.5 rounded border border-input hover:bg-accent">
+                      <ChevronLeft className="h-3 w-3" />
+                    </button>
+                    <button onClick={() => moveCard(layout.id, 1)} title="Mover para depois"
+                      className="p-0.5 rounded border border-input hover:bg-accent">
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
