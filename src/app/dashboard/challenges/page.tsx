@@ -6,26 +6,27 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, Target, Flame, CheckCircle, Plus, RotateCcw } from 'lucide-react';
+import { Trophy, Target, Flame, CheckCircle, Plus, RotateCcw, Loader2 } from 'lucide-react';
 
 interface Challenge {
-  id: string;
+  id: string;          // Supabase UUID
+  challenge_id: string;
   title: string;
   description: string;
   emoji: string;
-  weeks?: number;
   target: number;
   category: string;
   progress: number;
   completed: boolean;
-  startedAt?: string;
+  started_at?: string;
 }
 
-const PRESET_CHALLENGES: Omit<Challenge, 'progress' | 'completed' | 'startedAt'>[] = [
+const PRESET_CHALLENGES: Omit<Challenge, 'id' | 'progress' | 'completed' | 'started_at'>[] = [
   {
-    id: 'no-delivery',
+    challenge_id: 'no-delivery',
     title: 'Mês Sem Delivery',
     description: 'Passe um mês inteiro sem pedir comida por aplicativo. Cozinhe em casa!',
     emoji: '🍳',
@@ -33,16 +34,15 @@ const PRESET_CHALLENGES: Omit<Challenge, 'progress' | 'completed' | 'startedAt'>
     category: 'Alimentação',
   },
   {
-    id: '52-weeks',
+    challenge_id: '52-weeks',
     title: 'Desafio das 52 Semanas',
     description: 'Na semana 1 poupe R$10, semana 2 R$20... ao final do ano terá R$13.780!',
     emoji: '💰',
-    weeks: 52,
     target: 13780,
     category: 'Poupança',
   },
   {
-    id: 'no-impulse',
+    challenge_id: 'no-impulse',
     title: 'Sem Compras por Impulso',
     description: 'Antes de qualquer compra acima de R$50, espere 48h. Se ainda quiser, compre.',
     emoji: '🛑',
@@ -50,7 +50,7 @@ const PRESET_CHALLENGES: Omit<Challenge, 'progress' | 'completed' | 'startedAt'>
     category: 'Consumo',
   },
   {
-    id: 'coffee-savings',
+    challenge_id: 'coffee-savings',
     title: 'Desafio do Café em Casa',
     description: 'Prepare seu café em casa por 30 dias. Economize até R$200/mês.',
     emoji: '☕',
@@ -58,7 +58,7 @@ const PRESET_CHALLENGES: Omit<Challenge, 'progress' | 'completed' | 'startedAt'>
     category: 'Alimentação',
   },
   {
-    id: 'transport-save',
+    challenge_id: 'transport-save',
     title: 'Menos Uber',
     description: 'Use transporte público ou caminhe pelo menos 3x por semana este mês.',
     emoji: '🚌',
@@ -66,7 +66,7 @@ const PRESET_CHALLENGES: Omit<Challenge, 'progress' | 'completed' | 'startedAt'>
     category: 'Transporte',
   },
   {
-    id: 'streaming-audit',
+    challenge_id: 'streaming-audit',
     title: 'Auditoria de Streaming',
     description: 'Cancele pelo menos 1 serviço de streaming que você usa pouco.',
     emoji: '📺',
@@ -75,58 +75,77 @@ const PRESET_CHALLENGES: Omit<Challenge, 'progress' | 'completed' | 'startedAt'>
   },
 ];
 
-const STORAGE_KEY = 'financo_challenges';
-
-function loadChallenges(): Challenge[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveChallenges(challenges: Challenge[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(challenges));
-}
-
 export default function ChallengesPage() {
   const { user } = useAuth();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
+  // Load from Supabase
   useEffect(() => {
-    setChallenges(loadChallenges());
-    setLoaded(true);
-  }, []);
+    if (!user?.id) return;
+    supabase
+      .from('challenges')
+      .select('*')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (data) setChallenges(data as Challenge[]);
+        setLoading(false);
+      });
+  }, [user?.id]);
 
-  const addChallenge = (preset: typeof PRESET_CHALLENGES[0]) => {
-    if (challenges.find(c => c.id === preset.id)) return;
-    const next = [...challenges, { ...preset, progress: 0, completed: false, startedAt: new Date().toISOString() }];
-    setChallenges(next);
-    saveChallenges(next);
+  const addChallenge = async (preset: typeof PRESET_CHALLENGES[0]) => {
+    if (!user?.id || challenges.find(c => c.challenge_id === preset.challenge_id)) return;
+    setSaving(true);
+    const row = {
+      user_id: user.id,
+      challenge_id: preset.challenge_id,
+      title: preset.title,
+      description: preset.description,
+      emoji: preset.emoji,
+      target: preset.target,
+      category: preset.category,
+      progress: 0,
+      completed: false,
+      started_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from('challenges').insert(row).select().single();
+    if (!error && data) setChallenges(prev => [...prev, data as Challenge]);
+    setSaving(false);
   };
 
-  const updateProgress = (id: string, delta: number) => {
-    const next = challenges.map(c => {
-      if (c.id !== id) return c;
-      const newProgress = Math.min(c.target, Math.max(0, c.progress + delta));
-      return { ...c, progress: newProgress, completed: newProgress >= c.target };
-    });
-    setChallenges(next);
-    saveChallenges(next);
+  const updateProgress = async (id: string, delta: number) => {
+    const ch = challenges.find(c => c.id === id);
+    if (!ch) return;
+    const newProgress = Math.min(ch.target, Math.max(0, ch.progress + delta));
+    const completed = newProgress >= ch.target;
+    const { data, error } = await supabase
+      .from('challenges')
+      .update({ progress: newProgress, completed })
+      .eq('id', id)
+      .select()
+      .single();
+    if (!error && data) {
+      setChallenges(prev => prev.map(c => c.id === id ? (data as Challenge) : c));
+    }
   };
 
-  const removeChallenge = (id: string) => {
-    const next = challenges.filter(c => c.id !== id);
-    setChallenges(next);
-    saveChallenges(next);
+  const removeChallenge = async (id: string) => {
+    await supabase.from('challenges').delete().eq('id', id);
+    setChallenges(prev => prev.filter(c => c.id !== id));
   };
 
   const activeChallenges = challenges.filter(c => !c.completed);
   const completedChallenges = challenges.filter(c => c.completed);
-  const availablePresets = PRESET_CHALLENGES.filter(p => !challenges.find(c => c.id === p.id));
+  const availablePresets = PRESET_CHALLENGES.filter(p => !challenges.find(c => c.challenge_id === p.challenge_id));
 
-  if (!loaded) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -246,7 +265,7 @@ export default function ChallengesPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {availablePresets.map(p => (
-              <Card key={p.id} className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => addChallenge(p)}>
+              <Card key={p.challenge_id} className="hover:border-primary/40 transition-colors cursor-pointer" onClick={() => addChallenge(p)}>
                 <CardContent className="pt-4 pb-4">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">{p.emoji}</span>

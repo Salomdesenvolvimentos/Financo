@@ -1,12 +1,11 @@
 // ============================================
-// FINACO - Serviços de Análises Financeiras (Modo Local)
-// Wrapper que detecta modo local vs Supabase
+// FINACO - Serviços de Análises Financeiras
+// Consultas analíticas via Supabase
 // ============================================
 
 'use client';
 
 import { supabase } from '@/lib/supabase';
-import { localDB } from '@/lib/local-storage';
 import type {
   FinancialSummary,
   CategorySummary,
@@ -17,10 +16,6 @@ import type {
   Transaction,
 } from '@/types';
 import { getMonthRange } from '@/lib/utils';
-
-const isLocalMode = () => {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost:54321');
-};
 
 /**
  * Calcula o resumo financeiro do mês
@@ -33,20 +28,13 @@ export async function getFinancialSummary(
 
   let transactions: Transaction[] = [];
 
-  if (isLocalMode()) {
-    transactions = localDB.getTransactions().filter(t => {
-      const tDate = new Date(t.data_transacao);
-      return tDate >= start && tDate <= end;
-    });
-  } else {
-    const { data } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('data_transacao', start.toISOString().split('T')[0])
-      .lte('data_transacao', end.toISOString().split('T')[0]);
-    transactions = data || [];
-  }
+  const { data } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('data_transacao', start.toISOString().split('T')[0])
+    .lte('data_transacao', end.toISOString().split('T')[0]);
+  transactions = data || [];
 
   if (!transactions.length) {
     return {
@@ -102,31 +90,14 @@ export async function getCategoryExpenses(
 
   let transactions: any[] = [];
 
-  if (isLocalMode()) {
-    const allTransactions = localDB.getTransactions();
-    const categories = localDB.getCategories();
-    
-    transactions = allTransactions
-      .filter(t => {
-        const tDate = new Date(t.data_transacao);
-        // Excluir faturas de cartão das análises de categoria para evitar dupla contagem
-        if (t.is_fatura) return false;
-        return t.tipo === tipo && tDate >= start && tDate <= end;
-      })
-      .map(t => ({
-        ...t,
-        categoria: categories.find(c => c.id === t.categoria_id),
-      }));
-  } else {
-    const { data } = await supabase
-      .from('transactions')
-      .select('*, categoria:categories(*)')
-      .eq('user_id', userId)
-      .eq('tipo', tipo)
-      .gte('data_transacao', start.toISOString().split('T')[0])
-      .lte('data_transacao', end.toISOString().split('T')[0]);
-    transactions = data || [];
-  }
+  const { data } = await supabase
+    .from('transactions')
+    .select('*, categoria:categories(*)')
+    .eq('user_id', userId)
+    .eq('tipo', tipo)
+    .gte('data_transacao', start.toISOString().split('T')[0])
+    .lte('data_transacao', end.toISOString().split('T')[0]);
+  transactions = (data || []).filter((t: any) => !t.is_fatura);
 
   if (!transactions.length) return [];
 
@@ -177,23 +148,15 @@ export async function getDailyExpenses(
 
   let transactions: Transaction[] = [];
 
-  if (isLocalMode()) {
-    transactions = localDB.getTransactions().filter(t => {
-      const tDate = new Date(t.data_transacao);
-      // Excluir faturas de cartão para evitar dupla contagem
-      return t.tipo === 'despesa' && !t.is_fatura && tDate >= start && tDate <= end;
-    });
-  } else {
-    const { data } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('tipo', 'despesa')
-      .eq('is_fatura', false)
-      .gte('data_transacao', start.toISOString().split('T')[0])
-      .lte('data_transacao', end.toISOString().split('T')[0]);
-    transactions = data || [];
-  }
+  const { data: txData } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('tipo', 'despesa')
+    .eq('is_fatura', false)
+    .gte('data_transacao', start.toISOString().split('T')[0])
+    .lte('data_transacao', end.toISOString().split('T')[0]);
+  transactions = txData || [];
 
   // Criar mapa de dias do mês
   const dailyMap = new Map<number, number>();
@@ -230,22 +193,15 @@ export async function getWeekdayExpenses(
 
   let transactions: Transaction[] = [];
 
-  if (isLocalMode()) {
-    transactions = localDB.getTransactions().filter(t => {
-      const tDate = new Date(t.data_transacao);
-      return t.tipo === 'despesa' && !t.is_fatura && tDate >= start && tDate <= end;
-    });
-  } else {
-    const { data } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('tipo', 'despesa')
-      .eq('is_fatura', false)
-      .gte('data_transacao', start.toISOString().split('T')[0])
-      .lte('data_transacao', end.toISOString().split('T')[0]);
-    transactions = data || [];
-  }
+  const { data: wxData } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('tipo', 'despesa')
+    .eq('is_fatura', false)
+    .gte('data_transacao', start.toISOString().split('T')[0])
+    .lte('data_transacao', end.toISOString().split('T')[0]);
+  transactions = wxData || [];
 
   if (!transactions.length) {
     return weekdays.map((dia, index) => ({
@@ -310,20 +266,13 @@ export async function getMonthlyTrend(userId: string): Promise<MonthlyTrend[]> {
 
     let transactions: Transaction[] = [];
 
-    if (isLocalMode()) {
-      transactions = localDB.getTransactions().filter(t => {
-        const tDate = new Date(t.data_transacao);
-        return tDate >= start && tDate <= end;
-      });
-    } else {
-      const { data } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('data_transacao', start.toISOString().split('T')[0])
-        .lte('data_transacao', end.toISOString().split('T')[0]);
-      transactions = data || [];
-    }
+    const { data } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('data_transacao', start.toISOString().split('T')[0])
+      .lte('data_transacao', end.toISOString().split('T')[0]);
+    transactions = data || [];
 
     const receita = transactions
       .filter((t) => t.tipo === 'receita')

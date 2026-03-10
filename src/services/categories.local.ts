@@ -1,28 +1,18 @@
 // ============================================
-// FINACO - Serviços de Categorias (Modo Local)
-// Wrapper que detecta modo local vs Supabase
+// FINACO - Serviços de Categorias
+// CRUD via Supabase para categorias
 // ============================================
 
 'use client';
 
 import { supabase } from '@/lib/supabase';
-import { localDB } from '@/lib/local-storage';
 import type { Category, CategoryFormData } from '@/types';
-
-const isLocalMode = () => {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost:54321');
-};
 
 /**
  * Busca todas as categorias do usuário
  */
 export async function getCategories(userId: string) {
   try {
-    if (isLocalMode()) {
-      const categories = localDB.getCategories();
-      return { data: categories, error: null };
-    }
-    
     const { data, error } = await supabase
       .from('categories')
       .select('*')
@@ -30,7 +20,6 @@ export async function getCategories(userId: string) {
       .order('nome');
 
     if (error) throw error;
-
     return { data: data as Category[], error: null };
   } catch (error: any) {
     return { data: null, error: error.message };
@@ -42,11 +31,6 @@ export async function getCategories(userId: string) {
  */
 export async function getCategoriesByType(userId: string, tipo: 'receita' | 'despesa') {
   try {
-    if (isLocalMode()) {
-      const categories = localDB.getCategories().filter(c => c.tipo === tipo);
-      return { data: categories, error: null };
-    }
-    
     const { data, error } = await supabase
       .from('categories')
       .select('*')
@@ -55,7 +39,6 @@ export async function getCategoriesByType(userId: string, tipo: 'receita' | 'des
       .order('nome');
 
     if (error) throw error;
-
     return { data: data as Category[], error: null };
   } catch (error: any) {
     return { data: null, error: error.message };
@@ -67,37 +50,16 @@ export async function getCategoriesByType(userId: string, tipo: 'receita' | 'des
  */
 export async function createCategory(categoryData: CategoryFormData) {
   try {
-    if (isLocalMode()) {
-      const categories = localDB.getCategories();
-      const user = localDB.getUser();
-      const newCategory: Category = {
-        id: `cat-${Date.now()}`,
-        user_id: user?.id || 'local-user-123',
-        ...categoryData,
-        created_at: new Date().toISOString(),
-      };
-      categories.push(newCategory);
-      localDB.setCategories(categories);
-      return { data: newCategory, error: null };
-    }
-    
-    // Adicionar user_id aos dados antes de inserir
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      throw new Error('Usuário não autenticado');
-    }
+    if (!userData.user) throw new Error('Usuário não autenticado');
     
     const { data, error } = await supabase
       .from('categories')
-      .insert([{
-        ...categoryData,
-        user_id: userData.user.id
-      }])
+      .insert([{ ...categoryData, user_id: userData.user.id }])
       .select()
       .single();
 
     if (error) throw error;
-
     return { data: data as Category, error: null };
   } catch (error: any) {
     return { data: null, error: error.message };
@@ -109,20 +71,6 @@ export async function createCategory(categoryData: CategoryFormData) {
  */
 export async function updateCategory(categoryId: string, categoryData: Partial<CategoryFormData>) {
   try {
-    if (isLocalMode()) {
-      const categories = localDB.getCategories();
-      const index = categories.findIndex(c => c.id === categoryId);
-      if (index !== -1) {
-        categories[index] = {
-          ...categories[index],
-          ...categoryData,
-        };
-        localDB.setCategories(categories);
-        return { data: categories[index], error: null };
-      }
-      return { data: null, error: 'Categoria não encontrada' };
-    }
-    
     const { data, error } = await supabase
       .from('categories')
       .update(categoryData)
@@ -131,7 +79,6 @@ export async function updateCategory(categoryId: string, categoryData: Partial<C
       .single();
 
     if (error) throw error;
-
     return { data: data as Category, error: null };
   } catch (error: any) {
     return { data: null, error: error.message };
@@ -143,20 +90,12 @@ export async function updateCategory(categoryId: string, categoryData: Partial<C
  */
 export async function deleteCategory(categoryId: string) {
   try {
-    if (isLocalMode()) {
-      const categories = localDB.getCategories();
-      const filtered = categories.filter(c => c.id !== categoryId);
-      localDB.setCategories(filtered);
-      return { error: null };
-    }
-    
     const { error } = await supabase
       .from('categories')
       .delete()
       .eq('id', categoryId);
 
     if (error) throw error;
-
     return { error: null };
   } catch (error: any) {
     return { error: error.message };

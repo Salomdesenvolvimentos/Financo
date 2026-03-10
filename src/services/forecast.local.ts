@@ -4,13 +4,9 @@
 // ============================================
 
 import { supabase } from '@/lib/supabase';
-import { localDB } from '@/lib/local-storage';
 import { getFixedExpensesByMonth } from './fixed-expenses.local';
 import { getFixedIncomeByMonth } from './fixed-income.local';
 import type { MonthlyForecast, ForecastAlert, CalendarEvent } from '@/types';
-
-const isLocalMode = () =>
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost:54321');
 
 // ============================================
 // Previsão Mensal Principal
@@ -117,12 +113,6 @@ async function getMonthTransactions(userId: string, year: number, month: number)
   try {
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
     const monthEnd = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
-
-    if (isLocalMode()) {
-      const all = localDB.getTransactions();
-      const data = all.filter((t) => t.data_transacao >= monthStart && t.data_transacao <= monthEnd);
-      return { data, error: null };
-    }
 
     const { data, error } = await supabase
       .from('transactions')
