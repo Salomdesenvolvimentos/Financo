@@ -351,26 +351,6 @@ export function NavbarTop({
   );
 }
 
-
-interface NavbarTopProps {
-  userName?: string;
-  darkMode: boolean;
-  onToggleTheme: () => void;
-  onToggleMenu: () => void;
-  isMenuOpen: boolean;
-  isCollapsible: boolean;
-  hidden?: boolean;
-}
-
-export function NavbarTop({ 
-  userName, 
-  darkMode, 
-  onToggleTheme,
-  onToggleMenu,
-  isMenuOpen,
-  isCollapsible,
-  hidden = false,
-}: NavbarTopProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
