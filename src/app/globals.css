@@ -61,14 +61,18 @@
   font-size: .75rem !important;
 }
 .driver-overlay {
-  background: rgba(0,0,0,.72) !important;
+  background: rgba(0,0,0,.55) !important;
 }
-/* Destaque claro no elemento em foco */
+/* Destaque claro + glow no elemento em foco */
 .driver-active-element,
 .driver-highlighted-element {
   outline: 3px solid hsl(var(--primary)) !important;
-  outline-offset: 3px !important;
+  outline-offset: 4px !important;
   border-radius: 10px !important;
+  box-shadow: 0 0 0 4px hsla(230,86%,56%,0.25), 0 0 24px 6px hsla(230,86%,56%,0.20) !important;
+  filter: brightness(1.12) !important;
+  position: relative !important;
+  z-index: 10000 !important;
 }
 
 @layer base {
