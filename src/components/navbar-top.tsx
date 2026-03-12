@@ -55,9 +55,9 @@ const navEntries: NavEntry[] = [
   {
     type: 'group',
     data: {
-      id: 'financas', label: 'FinanÃ§as', icon: BarChart3,
+      id: 'financas', label: 'Finanças', icon: BarChart3,
       items: [
-        { icon: Receipt,    label: 'TransaÃ§Ãµes',   href: '/dashboard/transactions'   },
+        { icon: Receipt,    label: 'Transações',   href: '/dashboard/transactions'   },
         { icon: CreditCard, label: 'Gastos Fixos', href: '/dashboard/fixed-expenses' },
         { icon: DollarSign, label: 'Rendas Fixas', href: '/dashboard/fixed-income'   },
       ],
@@ -76,7 +76,7 @@ const navEntries: NavEntry[] = [
   },
   { type: 'item', data: { icon: Users,    label: 'Social',        href: '/dashboard/social'   } },
   { type: 'item', data: { icon: Upload,   label: 'Importar',      href: '/dashboard/import'   } },
-  { type: 'item', data: { icon: Settings, label: 'ConfiguraÃ§Ãµes', href: '/dashboard/settings' } },
+  { type: 'item', data: { icon: Settings, label: 'Configurações', href: '/dashboard/settings' } },
 ];
 
 export function NavbarTop({ 
@@ -127,7 +127,7 @@ export function NavbarTop({
   const handleSignOut = async () => {
     try {
       await signOut();
-      toast({ title: "Logout realizado", description: "VocÃª foi desconectado com sucesso." });
+      toast({ title: "Logout realizado", description: "Você foi desconectado com sucesso." });
       router.push('/login');
     } catch {
       toast({ title: "Erro ao sair", description: "Ocorreu um erro ao tentar sair.", variant: "destructive" });
@@ -241,11 +241,11 @@ export function NavbarTop({
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   aria-expanded={userMenuOpen}
                   aria-haspopup="menu"
-                  aria-label="Menu do usuÃ¡rio"
+                  aria-label="Menu do usuário"
                   className="flex items-center gap-1.5 p-1.5 rounded-xl hover:bg-muted/60 transition-colors"
                 >
                   {profileImage ? (
-                    <img src={profileImage} alt={userName || 'UsuÃ¡rio'} className="w-7 h-7 rounded-full object-cover ring-2 ring-border" />
+                    <img src={profileImage} alt={userName || 'Usuário'} className="w-7 h-7 rounded-full object-cover ring-2 ring-border" />
                   ) : (
                     <div className="w-7 h-7 rounded-full flex items-center justify-center ring-2 ring-border" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent-foreground)))' }}>
                       <User className="h-3.5 w-3.5 text-white" />
@@ -257,7 +257,7 @@ export function NavbarTop({
                 {userMenuOpen && (
                   <div role="menu" className="absolute right-0 mt-2 w-56 bg-card rounded-xl shadow-lg border border-border animate-scale-in overflow-hidden z-[300]">
                     <div className="p-3 border-b border-border">
-                      <p className="text-sm font-semibold truncate">{userName || 'UsuÃ¡rio'}</p>
+                      <p className="text-sm font-semibold truncate">{userName || 'Usuário'}</p>
                       <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     </div>
                     <div className="py-1">

@@ -239,7 +239,7 @@ export function SiteTour() {
     <button
       onClick={startTour}
       title="Ver tutorial novamente"
-      className="fixed bottom-24 right-6 z-40 flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border shadow-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all"
+      className="fixed bottom-36 right-6 z-50 flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border shadow-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all"
       aria-label="Ver tutorial do Financo"
     >
       <BookOpen className="h-4 w-4" />

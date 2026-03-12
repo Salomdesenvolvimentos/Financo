@@ -29,7 +29,6 @@ import {
   Moon,
   CreditCard,
   User,
-  ChevronDown,
   ChevronRight,
   TrendingUp,
   Trophy,
@@ -64,7 +63,6 @@ export function Sidebar({
   const { user } = useAuth();
   const { isPremium } = usePlan();
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Grupos colapsáveis
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -349,14 +347,9 @@ export function Sidebar({
 
         {/* User Section */}
         <div className="border-t border-border p-3">
-          <div className="relative">
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              aria-expanded={userMenuOpen}
-              aria-haspopup="menu"
-              aria-label="Menu do usuário"
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-muted/60 transition-colors"
-            >
+          <div className="flex items-center gap-2">
+            {/* Avatar + nome */}
+            <div className="flex items-center gap-2.5 flex-1 min-w-0 p-1.5">
               {profileImage ? (
                 <img src={profileImage} alt={userName || 'Usuário'} width={36} height={36} className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-2 ring-border" />
               ) : (
@@ -365,26 +358,31 @@ export function Sidebar({
                   <User className="h-4 w-4 text-white" />
                 </div>
               )}
-              <div className="flex-1 min-w-0 text-left">
+              <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{userName || 'Usuário'}</p>
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
-              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            {/* Modo escuro */}
+            <button
+              onClick={onToggleTheme}
+              aria-label={darkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+              className="p-2 rounded-lg hover:bg-muted transition-colors flex-shrink-0"
+              title={darkMode ? 'Modo Claro' : 'Modo Escuro'}
+            >
+              {darkMode ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-blue-500" />}
             </button>
 
-            {userMenuOpen && (
-              <div role="menu" className="absolute bottom-full left-0 right-0 mb-2 bg-card rounded-xl shadow-lg border border-border animate-scale-in overflow-hidden">
-                <button role="menuitem" onClick={onToggleTheme} className="w-full px-4 py-2.5 text-sm text-left hover:bg-muted/60 flex items-center gap-3 transition-colors">
-                  {darkMode ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-blue-500" />}
-                  {darkMode ? 'Modo Claro' : 'Modo Escuro'}
-                </button>
-                <div className="h-px bg-border mx-2" />
-                <button role="menuitem" onClick={handleSignOut} className="w-full px-4 py-2.5 text-sm text-left text-destructive hover:bg-destructive/10 flex items-center gap-3 transition-colors">
-                  <LogOut className="h-4 w-4" />
-                  Sair
-                </button>
-              </div>
-            )}
+            {/* Sair */}
+            <button
+              onClick={handleSignOut}
+              aria-label="Sair da conta"
+              className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>

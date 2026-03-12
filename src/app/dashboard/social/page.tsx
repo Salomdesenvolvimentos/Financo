@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import {
   Users, Trophy, Swords, Search, UserPlus, Check, X, Clock,
   Star, ChevronRight, Medal, Flame, Crown, Loader2, Send,
-  UserCheck, UserX, RotateCcw, RefreshCw,
+  UserCheck, UserX, RotateCcw, RefreshCw, Handshake,
 } from 'lucide-react';
 import {
   getMyProfile, upsertProfile, searchProfilesByEmail,
@@ -25,7 +25,7 @@ import {
 } from '@/services/social';
 import { supabase } from '@/lib/supabase';
 import type {
-  Profile, Friendship, UserAchievement, AchievementDefinition, DuoChallenge,
+  Profile, Friendship, UserAchievement, AchievementDefinition, DuoChallenge, DuoType,
 } from '@/types';
 
 // Desafios disponíveis para duelo
@@ -38,7 +38,7 @@ const DUO_PRESETS = [
   { challenge_id: 'investment',  title: 'Faça um Investimento',     emoji: '📈', target: 1, category: 'Investimentos', description: 'Invistam qualquer valor em algum ativo.' },
 ];
 
-type Tab = 'friends' | 'achievements' | 'duels';
+type Tab = 'friends' | 'requests' | 'achievements' | 'duels';
 
 export default function SocialPage() {
   const { user } = useAuth();
@@ -62,6 +62,7 @@ export default function SocialPage() {
   const [showCreateDuo, setShowCreateDuo] = useState(false);
   const [selectedFriendForDuo, setSelectedFriendForDuo] = useState<string>('');
   const [selectedPreset, setSelectedPreset] = useState<typeof DUO_PRESETS[0] | null>(null);
+  const [selectedDuoType, setSelectedDuoType] = useState<DuoType>('challenge');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -195,13 +196,15 @@ export default function SocialPage() {
       emoji: selectedPreset.emoji,
       target: selectedPreset.target,
       category: selectedPreset.category,
+      duo_type: selectedDuoType,
       requester_id: user.id,
       addressee_id: selectedFriendForDuo,
     });
-    toast({ title: '⚔️ Desafio enviado!', description: 'Aguarde seu amigo aceitar.' });
+    toast({ title: selectedDuoType === 'cooperative' ? '🤝 Cooperação enviada!' : '⚔️ Desafio enviado!', description: 'Aguarde seu amigo aceitar.' });
     setShowCreateDuo(false);
     setSelectedFriendForDuo('');
     setSelectedPreset(null);
+    setSelectedDuoType('challenge');
     setSaving(false);
     await load();
   };
@@ -275,9 +278,10 @@ export default function SocialPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-muted rounded-xl p-1">
         {([
-          { key: 'friends',      label: 'Amigos',    icon: Users  },
-          { key: 'achievements', label: 'Conquistas', icon: Trophy },
-          { key: 'duels',        label: 'Duelos',    icon: Swords },
+          { key: 'friends',      label: 'Amigos',       icon: Users  },
+          { key: 'requests',     label: 'Solicitações', icon: Clock  },
+          { key: 'achievements', label: 'Conquistas',   icon: Trophy },
+          { key: 'duels',        label: 'Duelos',       icon: Swords },
         ] as { key: Tab; label: string; icon: React.ElementType }[]).map(t => (
           <button
             key={t.key}
@@ -289,15 +293,95 @@ export default function SocialPage() {
             }`}
           >
             <t.icon className="h-4 w-4" />
-            {t.label}
-            {t.key === 'friends' && pendingReceived.length > 0 && (
-              <span className="ml-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+            <span className="hidden sm:inline">{t.label}</span>
+            {t.key === 'requests' && pendingReceived.length > 0 && (
+              <span className="ml-0.5 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
                 {pendingReceived.length}
               </span>
             )}
           </button>
         ))}
       </div>
+
+      {/* ===== SOLICITAÇÕES ===== */}
+      {tab === 'requests' && (
+        <div className="space-y-5">
+          {/* Recebidas */}
+          <div>
+            <h2 className="font-semibold text-lg flex items-center gap-2 mb-3">
+              <Clock className="h-5 w-5 text-amber-500" />
+              Solicitações recebidas ({pendingReceived.length})
+            </h2>
+            {pendingReceived.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  <UserPlus className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>Nenhuma solicitação recebida.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {pendingReceived.map(f => {
+                  const p = getFriendProfile(f);
+                  return (
+                    <Card key={f.id} className="border-amber-200 dark:border-amber-800">
+                      <CardContent className="pt-4 pb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{p?.avatar_emoji ?? '😊'}</span>
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm">{p?.display_name ?? 'Usuário'}</p>
+                            <p className="text-xs text-muted-foreground">{p?.email}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleRespond(f.id, 'accepted')}>
+                              <Check className="h-3.5 w-3.5 mr-1" /> Aceitar
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-red-500 border-red-300" onClick={() => handleRespond(f.id, 'declined')}>
+                              <X className="h-3.5 w-3.5 mr-1" /> Recusar
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Enviadas */}
+          <div>
+            <h2 className="font-semibold text-lg flex items-center gap-2 mb-3">
+              <Send className="h-5 w-5 text-indigo-500" />
+              Solicitações enviadas ({pendingSent.length})
+            </h2>
+            {pendingSent.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  <Send className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p>Nenhuma solicitação enviada pendente.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {pendingSent.map(f => {
+                  const p = getFriendProfile(f);
+                  return (
+                    <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                      <span className="text-2xl">{p?.avatar_emoji ?? '😊'}</span>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{p?.display_name ?? 'Usuário'}</p>
+                        <p className="text-xs text-muted-foreground">{p?.email}</p>
+                      </div>
+                      <span className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">Pendente</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ===== AMIGOS ===== */}
       {tab === 'friends' && (
@@ -343,40 +427,6 @@ export default function SocialPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Solicitações recebidas */}
-          {pendingReceived.length > 0 && (
-            <Card className="border-amber-200 dark:border-amber-800">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                  <Clock className="h-4 w-4" />
-                  Solicitações recebidas ({pendingReceived.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {pendingReceived.map(f => {
-                  const p = getFriendProfile(f);
-                  return (
-                    <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20">
-                      <span className="text-2xl">{p?.avatar_emoji ?? '😊'}</span>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{p?.display_name ?? 'Usuário'}</p>
-                        <p className="text-xs text-muted-foreground">{p?.email}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="text-green-600 border-green-300" onClick={() => handleRespond(f.id, 'accepted')}>
-                          <Check className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-red-500 border-red-300" onClick={() => handleRespond(f.id, 'declined')}>
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Enviadas pendentes */}
           {pendingSent.length > 0 && (
@@ -584,9 +634,40 @@ export default function SocialPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Escolher tipo */}
+                <div>
+                  <label className="text-sm font-medium mb-2 block">1. Tipo de duelo</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setSelectedDuoType('challenge')}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-center transition-all ${
+                        selectedDuoType === 'challenge'
+                          ? 'border-red-400 bg-red-50 dark:bg-red-950/20'
+                          : 'border-border hover:border-red-300'
+                      }`}
+                    >
+                      <Swords className="h-5 w-5 text-red-500" />
+                      <p className="font-medium text-sm">Desafio</p>
+                      <p className="text-xs text-muted-foreground leading-tight">Quem atingir a meta primeiro vence</p>
+                    </button>
+                    <button
+                      onClick={() => setSelectedDuoType('cooperative')}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-center transition-all ${
+                        selectedDuoType === 'cooperative'
+                          ? 'border-green-400 bg-green-50 dark:bg-green-950/20'
+                          : 'border-border hover:border-green-300'
+                      }`}
+                    >
+                      <Handshake className="h-5 w-5 text-green-500" />
+                      <p className="font-medium text-sm">Cooperativo</p>
+                      <p className="text-xs text-muted-foreground leading-tight">Meta compartilhada — ambos vencem juntos</p>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Escolher amigo */}
                 <div>
-                  <label className="text-sm font-medium mb-2 block">1. Escolha o amigo</label>
+                  <label className="text-sm font-medium mb-2 block">2. Escolha o amigo</label>
                   <div className="grid grid-cols-1 gap-2">
                     {acceptedFriends.map(f => {
                       const p = getFriendProfile(f);
@@ -613,7 +694,7 @@ export default function SocialPage() {
 
                 {/* Escolher desafio */}
                 <div>
-                  <label className="text-sm font-medium mb-2 block">2. Escolha o desafio</label>
+                  <label className="text-sm font-medium mb-2 block">3. Escolha o desafio</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {DUO_PRESETS.map(p => (
                       <button
@@ -686,7 +767,18 @@ export default function SocialPage() {
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-2xl">{duo.emoji}</span>
                     <div className="flex-1">
-                      <p className="font-semibold">{duo.title}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold">{duo.title}</p>
+                        {duo.duo_type === 'cooperative' ? (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 font-medium">
+                            <Handshake className="h-3 w-3" /> Cooperativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-medium">
+                            <Swords className="h-3 w-3" /> Desafio
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">{duo.description}</p>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
@@ -717,26 +809,49 @@ export default function SocialPage() {
                   {/* Progresso comparativo */}
                   {(duo.status === 'active' || duo.status === 'completed') && (
                     <div className="space-y-3">
-                      {/* Eu */}
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="font-medium">Você {myCompleted && '✅'}</span>
-                          <span className="text-muted-foreground">{myProgress}/{duo.target}</span>
+                      {(duo.duo_type ?? 'challenge') === 'cooperative' ? (
+                        /* Modo cooperativo: progresso combinado */
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-medium">Progresso conjunto</span>
+                            <span className="text-muted-foreground">{myProgress + theirProgress}/{duo.target * 2}</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-3">
+                            <div
+                              className="bg-green-500 h-3 rounded-full transition-all"
+                              style={{ width: `${Math.min(Math.round(((myProgress + theirProgress) / (duo.target * 2)) * 100), 100)}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs mt-2 text-muted-foreground">
+                            <span>Você: {myProgress}/{duo.target} {myCompleted && '✅'}</span>
+                            <span>{opponent?.display_name ?? 'Amigo'}: {theirProgress}/{duo.target} {theirCompleted && '✅'}</span>
+                          </div>
                         </div>
-                        <div className="w-full bg-muted rounded-full h-3">
-                          <div className="bg-indigo-500 h-3 rounded-full transition-all" style={{ width: `${myPct}%` }} />
-                        </div>
-                      </div>
-                      {/* Oponente */}
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="font-medium">{opponent?.display_name ?? 'Amigo'} {theirCompleted && '✅'}</span>
-                          <span className="text-muted-foreground">{theirProgress}/{duo.target}</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-3">
-                          <div className="bg-rose-500 h-3 rounded-full transition-all" style={{ width: `${theirPct}%` }} />
-                        </div>
-                      </div>
+                      ) : (
+                        /* Modo desafio: barras individuais */
+                        <>
+                          {/* Eu */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-medium">Você {myCompleted && '✅'}</span>
+                              <span className="text-muted-foreground">{myProgress}/{duo.target}</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-3">
+                              <div className="bg-indigo-500 h-3 rounded-full transition-all" style={{ width: `${myPct}%` }} />
+                            </div>
+                          </div>
+                          {/* Oponente */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-medium">{opponent?.display_name ?? 'Amigo'} {theirCompleted && '✅'}</span>
+                              <span className="text-muted-foreground">{theirProgress}/{duo.target}</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-3">
+                              <div className="bg-rose-500 h-3 rounded-full transition-all" style={{ width: `${theirPct}%` }} />
+                            </div>
+                          </div>
+                        </>
+                      )}
 
                       {/* Botões de atualizar progresso */}
                       {duo.status === 'active' && !myCompleted && (

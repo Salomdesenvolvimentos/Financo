@@ -297,6 +297,7 @@ export interface UserAchievement {
 }
 
 export type DuoChallengeStatus = 'pending' | 'accepted' | 'declined' | 'active' | 'completed';
+export type DuoType = 'cooperative' | 'challenge';
 
 export interface DuoChallenge {
   id: string;
@@ -306,6 +307,7 @@ export interface DuoChallenge {
   emoji: string;
   target: number;
   category: string;
+  duo_type: DuoType;
   requester_id: string;
   addressee_id: string;
   requester_progress: number;
