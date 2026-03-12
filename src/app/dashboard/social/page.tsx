@@ -5,7 +5,7 @@
 // Inspirado no Duolingo, mas para finanças!
 // ============================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import {
   Users, Trophy, Swords, Search, UserPlus, Check, X, Clock,
   Star, ChevronRight, Medal, Flame, Crown, Loader2, Send,
-  UserCheck, UserX, RotateCcw,
+  UserCheck, UserX, RotateCcw, RefreshCw,
 } from 'lucide-react';
 import {
   getMyProfile, upsertProfile, searchProfilesByEmail,
@@ -23,6 +23,7 @@ import {
   getMyDuoChallenges, createDuoChallenge, respondDuoChallenge, updateDuoProgress,
   awardAchievement,
 } from '@/services/social';
+import { supabase } from '@/lib/supabase';
 import type {
   Profile, Friendship, UserAchievement, AchievementDefinition, DuoChallenge,
 } from '@/types';
@@ -92,6 +93,30 @@ export default function SocialPage() {
   }, [user?.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Subscription em tempo real para pedidos de amizade e desafios
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`social-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'friendships', filter: `addressee_id=eq.${user.id}` },
+        () => { load(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'friendships', filter: `requester_id=eq.${user.id}` },
+        () => { load(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'duo_challenges', filter: `addressee_id=eq.${user.id}` },
+        () => { load(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, load]);
 
   // Garantir que o perfil existe
   useEffect(() => {
@@ -207,14 +232,19 @@ export default function SocialPage() {
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Users className="h-7 w-7 text-indigo-500" />
-          Social Financeiro
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Adicione amigos, acompanhe conquistas e se desafie em dupla — finanças em comunidade! 💰
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Users className="h-7 w-7 text-indigo-500" />
+            Social Financeiro
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Adicione amigos, acompanhe conquistas e se desafie em dupla — finanças em comunidade! 💰
+          </p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={load} title="Atualizar" className="mt-1 shrink-0">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Meu perfil mini */}

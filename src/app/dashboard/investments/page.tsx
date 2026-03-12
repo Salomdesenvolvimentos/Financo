@@ -48,8 +48,172 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
+  RefreshCw,
+  Globe,
+  BarChart2,
+  Newspaper,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
 import { CryptoTicker } from '@/components/crypto-ticker';
+
+// ============================================
+// Sidebar de Mercado — cotações e informações do dia
+// ============================================
+interface ExchangeRate { code: string; name: string; bid: string; pctChange: string }
+interface MarketIndicator { label: string; value: string; change?: string; positive?: boolean }
+
+function MarketSidebar() {
+  const [rates, setRates] = useState<ExchangeRate[]>([]);
+  const [loadingRates, setLoadingRates] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  const fixedIndicators: MarketIndicator[] = [
+    { label: 'SELIC (meta)', value: '13,75% a.a.', change: 'Banco Central', positive: false },
+    { label: 'CDI',          value: '13,65% a.a.', change: 'Referência',    positive: true  },
+    { label: 'IPCA (12m)',   value: '4,83%',        change: 'Inflação',      positive: false },
+    { label: 'Ibovespa',     value: '~127.000 pts', change: 'B3',            positive: true  },
+  ];
+
+  const marketNews = [
+    { emoji: '📉', text: 'Volatilidade global afeta mercados emergentes' },
+    { emoji: '💰', text: 'CDBs pós-fixados seguem atrativos com SELIC alta' },
+    { emoji: '🏦', text: 'Tesouro SELIC: liquidez diária com rentabilidade real' },
+    { emoji: '📊', text: 'FIIs: rendimentos mensais acima da inflação' },
+    { emoji: '🌍', text: 'Dólar influenciado por política monetária do Fed' },
+    { emoji: '⚡', text: 'Diversificação reduz risco da carteira até 40%' },
+  ];
+
+  async function fetchRates() {
+    setLoadingRates(true);
+    try {
+      const res = await fetch(
+        'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,GBP-BRL',
+        { cache: 'no-store', signal: AbortSignal.timeout(8000) }
+      );
+      if (!res.ok) throw new Error('status ' + res.status);
+      const data = await res.json();
+      const mapped: ExchangeRate[] = [
+        data.USDBRL && { code: 'USD', name: 'Dólar',         bid: parseFloat(data.USDBRL.bid).toFixed(2),  pctChange: data.USDBRL.pctChange },
+        data.EURBRL && { code: 'EUR', name: 'Euro',          bid: parseFloat(data.EURBRL.bid).toFixed(2),  pctChange: data.EURBRL.pctChange },
+        data.GBPBRL && { code: 'GBP', name: 'Libra',         bid: parseFloat(data.GBPBRL.bid).toFixed(2),  pctChange: data.GBPBRL.pctChange },
+        data.BTCBRL && { code: 'BTC', name: 'Bitcoin (BRL)', bid: parseFloat(data.BTCBRL.bid).toLocaleString('pt-BR', { maximumFractionDigits: 0 }), pctChange: data.BTCBRL.pctChange },
+      ].filter(Boolean) as ExchangeRate[];
+      setRates(mapped);
+      setLastUpdate(new Date());
+    } catch {
+      // silently ignore — show placeholder
+    } finally {
+      setLoadingRates(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchRates();
+    const id = setInterval(fetchRates, 120_000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <aside className="w-72 shrink-0 space-y-4">
+      {/* Câmbio */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+              <Globe className="h-4 w-4 text-blue-500" />
+              Câmbio ao vivo
+            </CardTitle>
+            <button
+              onClick={fetchRates}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Atualizar câmbio"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingRates ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          {lastUpdate && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Atualizado {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-2">
+          {loadingRates && rates.length === 0 ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-xs py-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando cotações...
+            </div>
+          ) : rates.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Cotações indisponíveis no momento.</p>
+          ) : (
+            rates.map(r => {
+              const pct = parseFloat(r.pctChange);
+              const up  = pct >= 0;
+              return (
+                <div key={r.code} className="flex items-center justify-between py-1.5 border-b last:border-0 border-border/60">
+                  <div>
+                    <p className="text-xs font-semibold">{r.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{r.code}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold">
+                      {r.code === 'BTC' ? `R$ ${r.bid}` : `R$ ${r.bid}`}
+                    </p>
+                    <span className={`text-[10px] font-medium flex items-center justify-end gap-0.5 ${up ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                      {up ? '+' : ''}{pct.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Indicadores fixos */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+            <BarChart2 className="h-4 w-4 text-violet-500" />
+            Indicadores Brasil
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-2">
+          {fixedIndicators.map(ind => (
+            <div key={ind.label} className="flex items-center justify-between py-1 border-b last:border-0 border-border/60">
+              <div>
+                <p className="text-xs font-medium">{ind.label}</p>
+                {ind.change && <p className="text-[10px] text-muted-foreground">{ind.change}</p>}
+              </div>
+              <span className={`text-xs font-bold ${ind.positive ? 'text-emerald-500' : 'text-orange-500'}`}>
+                {ind.value}
+              </span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Dicas e notícias do mercado */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+            <Newspaper className="h-4 w-4 text-amber-500" />
+            Dicas &amp; Mercado
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-2.5">
+          {marketNews.map((n, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+              <span className="text-base leading-none mt-0.5">{n.emoji}</span>
+              <p className="leading-snug">{n.text}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </aside>
+  );
+}
 
 const INVESTMENT_TYPE_LABELS: Record<InvestmentType, string> = {
   cdb: 'CDB',
@@ -229,7 +393,9 @@ export default function InvestmentsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex gap-6 items-start">
+      {/* Conteúdo principal */}
+      <div className="flex-1 min-w-0 space-y-6">
       {/* Ticker de Criptomoedas */}
       <CryptoTicker />
 
@@ -622,6 +788,10 @@ export default function InvestmentsPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+
+      {/* Sidebar de Mercado */}
+      <MarketSidebar />
     </div>
   );
 }

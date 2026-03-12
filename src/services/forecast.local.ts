@@ -35,14 +35,13 @@ export async function calculateMonthlyForecast(userId: string, year: number, mon
     const transactions = transactionsResult.data || [];
 
     // Calcular valores reais (transações já ocorridas — status pago/vencido)
-    const receitasRealizadas = transactions
-      .filter((t: any) => t.tipo === 'receita' && t.status !== 'andamento')
-      .reduce((sum: number, t: any) => sum + t.valor, 0);
+    const receitasRealizadasList = transactions.filter((t: any) => t.tipo === 'receita' && t.status !== 'andamento');
+    const despesasRealizadasList = transactions.filter((t: any) => t.tipo === 'despesa' && t.status !== 'andamento' && !t.is_fatura);
+
+    const receitasRealizadas = receitasRealizadasList.reduce((sum: number, t: any) => sum + t.valor, 0);
 
     // Despesas realizadas: excluir faturas (is_fatura) para evitar dupla contagem
-    const despesasRealizadas = transactions
-      .filter((t: any) => t.tipo === 'despesa' && t.status !== 'andamento' && !t.is_fatura)
-      .reduce((sum: number, t: any) => sum + t.valor, 0);
+    const despesasRealizadas = despesasRealizadasList.reduce((sum: number, t: any) => sum + t.valor, 0);
 
     // Despesas projetadas do mês: transações com status "andamento" (parcelas futuras importadas)
     const despesasProjetadas = transactions
@@ -51,10 +50,45 @@ export async function calculateMonthlyForecast(userId: string, year: number, mon
 
     const saldoReal = receitasRealizadas - despesasRealizadas;
 
-    // Calcular valores previstos (gastos/rendas fixas + parcelas projetadas)
-    const receitasPrevistas = fixedIncome.reduce((sum: number, income: any) => sum + income.valor, 0);
+    // -------------------------------------------------------------------
+    // Anti-duplicação: só contar receitas/despesas fixas que ainda NÃO
+    // foram realizadas como transação no mês.
+    // -------------------------------------------------------------------
+
+    // Para rendas fixas: comparar pelo campo "tipo" ('salario','adiantamento','outro')
+    // com o nome da categoria das transações recebidas.
+    const catNomesReceitas: string[] = receitasRealizadasList
+      .map((t: any) => t.categoria?.nome?.toLowerCase() ?? '')
+      .filter(Boolean);
+
+    function fixedIncomeJaRecebida(income: any): boolean {
+      const tipo = income.tipo as string;
+      return catNomesReceitas.some(c => {
+        if (tipo === 'salario')      return c.includes('salário') || c.includes('salario');
+        if (tipo === 'adiantamento') return c.includes('adiantamento');
+        // 'outro' — tenta casar pelo trecho da descrição da renda fixa
+        return c.includes(income.descricao?.toLowerCase()?.slice(0, 6) ?? '___');
+      });
+    }
+
+    // Para gastos fixos: comparar categoria_id diretamente
+    const categoriasDespesasRealizadas = new Set<string>(
+      despesasRealizadasList
+        .filter((t: any) => t.categoria_id)
+        .map((t: any) => t.categoria_id)
+    );
+
+    // Receitas previstas = apenas fixas NÃO recebidas ainda
+    const receitasPrevistas = fixedIncome
+      .filter((income: any) => !fixedIncomeJaRecebida(income))
+      .reduce((sum: number, income: any) => sum + income.valor, 0);
+
+    // Despesas previstas = fixas NÃO pagas ainda + projetadas (parcelas futuras)
+    // Para categorias já pagas, o valor real já está em despesasRealizadas — não soma de novo.
     const despesasPrevistas =
-      fixedExpenses.reduce((sum: number, expense: any) => sum + expense.valor, 0) +
+      fixedExpenses
+        .filter((expense: any) => !categoriasDespesasRealizadas.has(expense.categoria_id))
+        .reduce((sum: number, expense: any) => sum + expense.valor, 0) +
       despesasProjetadas;
 
     // Calcular projeção final
