@@ -47,15 +47,29 @@ export async function searchProfilesByEmail(query: string): Promise<Profile[]> {
 // ---- AMIZADES -----------------------------------------------
 
 export async function getMyFriendships(userId: string): Promise<Friendship[]> {
-  const { data } = await supabase
+  const { data: ships } = await supabase
     .from('friendships')
-    .select(`
-      *,
-      requester:profiles!friendships_requester_id_fkey(id, display_name, avatar_emoji, total_points, email),
-      addressee:profiles!friendships_addressee_id_fkey(id, display_name, avatar_emoji, total_points, email)
-    `)
+    .select('*')
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
-  return (data as Friendship[]) ?? [];
+
+  if (!ships || ships.length === 0) return [];
+
+  // Busca perfis em lote para evitar N+1
+  const userIds = [...new Set((ships as any[]).flatMap(f => [f.requester_id, f.addressee_id]))];
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_emoji, total_points, email')
+    .in('id', userIds);
+
+  const profileMap: Record<string, any> = Object.fromEntries(
+    (profiles ?? []).map((p: any) => [p.id, p])
+  );
+
+  return (ships as any[]).map(f => ({
+    ...f,
+    requester: profileMap[f.requester_id] ?? null,
+    addressee: profileMap[f.addressee_id] ?? null,
+  })) as Friendship[];
 }
 
 export async function sendFriendRequest(
@@ -145,16 +159,30 @@ export async function awardAchievement(
 // ---- DESAFIOS EM DUPLA ----------------------------------------
 
 export async function getMyDuoChallenges(userId: string): Promise<DuoChallenge[]> {
-  const { data } = await supabase
+  const { data: duos } = await supabase
     .from('duo_challenges')
-    .select(`
-      *,
-      requester:profiles!duo_challenges_requester_id_fkey(id, display_name, avatar_emoji),
-      addressee:profiles!duo_challenges_addressee_id_fkey(id, display_name, avatar_emoji)
-    `)
+    .select('*')
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
     .order('created_at', { ascending: false });
-  return (data as DuoChallenge[]) ?? [];
+
+  if (!duos || duos.length === 0) return [];
+
+  // Busca perfis em lote
+  const userIds = [...new Set((duos as any[]).flatMap(d => [d.requester_id, d.addressee_id]))];
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_emoji')
+    .in('id', userIds);
+
+  const profileMap: Record<string, any> = Object.fromEntries(
+    (profiles ?? []).map((p: any) => [p.id, p])
+  );
+
+  return (duos as any[]).map(d => ({
+    ...d,
+    requester: profileMap[d.requester_id] ?? null,
+    addressee: profileMap[d.addressee_id] ?? null,
+  })) as DuoChallenge[];
 }
 
 export async function createDuoChallenge(
