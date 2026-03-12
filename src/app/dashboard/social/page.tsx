@@ -213,7 +213,7 @@ export default function SocialPage() {
           Social Financeiro
         </h1>
         <p className="text-muted-foreground mt-1">
-          Adicione amigos, conquiste badges e se desafie em dupla — igual ao Duolingo, mas para sua grana. 💰
+          Adicione amigos, acompanhe conquistas e se desafie em dupla — finanças em comunidade! 💰
         </p>
       </div>
 

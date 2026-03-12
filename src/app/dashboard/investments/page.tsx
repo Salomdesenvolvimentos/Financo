@@ -49,6 +49,7 @@ import {
   ChevronRight,
   Crown,
 } from 'lucide-react';
+import { CryptoTicker } from '@/components/crypto-ticker';
 
 const INVESTMENT_TYPE_LABELS: Record<InvestmentType, string> = {
   cdb: 'CDB',
@@ -229,6 +230,9 @@ export default function InvestmentsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Ticker de Criptomoedas */}
+      <CryptoTicker />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

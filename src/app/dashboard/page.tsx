@@ -49,6 +49,7 @@ import {
   Save,
   X,
   CreditCard,
+  PiggyBank,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -603,16 +604,26 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Contas Vencidas */}
+        {/* Taxa de Economia */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Alertas</CardTitle>
-            <AlertCircle className="h-4 w-4 text-warning" />
+            <CardTitle className="text-sm font-medium">Taxa de Economia</CardTitle>
+            <PiggyBank className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.contas_vencidas}</div>
+            <div className={`text-2xl font-bold ${
+              ((summary as any).economia_percentual || 0) >= 20
+                ? 'text-success'
+                : ((summary as any).economia_percentual || 0) >= 5
+                  ? 'text-warning'
+                  : 'text-danger'
+            }`}>
+              {((summary as any).economia_percentual || 0).toFixed(1)}%
+            </div>
             <p className="text-xs text-muted-foreground">
-              {summary.contas_pendentes} pendentes
+              {summary.contas_vencidas > 0
+                ? `⚠️ ${summary.contas_vencidas} vencida${summary.contas_vencidas > 1 ? 's' : ''}`
+                : '✅ Sem vencimentos'}
             </p>
           </CardContent>
         </Card>

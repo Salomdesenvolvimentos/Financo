@@ -40,6 +40,8 @@ import {
   Monitor,
   Crown,
   Lock,
+  RefreshCw,
+  TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -59,6 +61,7 @@ export default function SettingsPageNew() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [showTicker, setShowTicker] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form para nova categoria
@@ -72,14 +75,12 @@ export default function SettingsPageNew() {
   useEffect(() => {
     if (user?.id) {
       const savedImage = localStorage.getItem(`profile-image-${user.id}`);
-      if (savedImage) {
-        setProfileImage(savedImage);
-      }
+      if (savedImage) setProfileImage(savedImage);
 
       const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'dark') {
-        setDarkMode(true);
-      }
+      if (savedTheme === 'dark') setDarkMode(true);
+
+      setShowTicker(localStorage.getItem('show_crypto_ticker') !== 'false');
     }
   }, [user]);
 
@@ -194,6 +195,19 @@ export default function SettingsPageNew() {
       title: "Tema alterado",
       description: `Tema alterado para ${newDarkMode ? 'escuro' : 'claro'}.`,
     });
+  };
+
+  const toggleTicker = (val: boolean) => {
+    setShowTicker(val);
+    localStorage.setItem('show_crypto_ticker', val ? 'true' : 'false');
+  };
+
+  const handleSave = () => {
+    toast({
+      title: '✅ Configurações salvas!',
+      description: 'A página será recarregada para aplicar as alterações.',
+    });
+    setTimeout(() => window.location.reload(), 700);
   };
 
   return (
@@ -386,6 +400,44 @@ export default function SettingsPageNew() {
           </Card>
         </div>
       </section>
+
+      {/* ── Preferências ── */}
+      <section aria-labelledby="section-prefs">
+        <h2 id="section-prefs" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Preferências</h2>
+        <Card className="card-hover">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Ticker de Criptomoedas</p>
+                  <p className="text-xs text-muted-foreground">Exibir letreiro com preços ao vivo em Investimentos</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={showTicker}
+                aria-label="Mostrar ticker de criptomoedas"
+                onClick={() => toggleTicker(!showTicker)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${showTicker ? 'bg-primary' : 'bg-input'}`}
+              >
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${showTicker ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Botão Salvar ── */}
+      <div className="pb-6">
+        <Button className="w-full gap-2" size="lg" onClick={handleSave}>
+          <RefreshCw className="h-4 w-4" />
+          Salvar e Recarregar
+        </Button>
+      </div>
     </div>
   );
 }
