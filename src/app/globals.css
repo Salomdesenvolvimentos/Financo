@@ -1,6 +1,68 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import 'driver.js/dist/driver.css';
+
+/* ── Customizações do tour driver.js ── */
+.financo-tour-popover {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25) !important;
+  padding: 1.25rem 1.5rem !important;
+  max-width: 360px !important;
+}
+.financo-tour-popover .driver-popover-title {
+  color: hsl(var(--foreground)) !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  margin-bottom: .4rem !important;
+}
+.financo-tour-popover .driver-popover-description {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: .875rem !important;
+  line-height: 1.55 !important;
+}
+.financo-tour-popover .driver-popover-footer {
+  margin-top: 1.1rem !important;
+  gap: .5rem !important;
+}
+.financo-tour-popover .driver-popover-next-btn,
+.financo-tour-popover .driver-popover-prev-btn,
+.financo-tour-popover .driver-popover-done-btn {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  border-radius: .6rem !important;
+  font-size: .8125rem !important;
+  font-weight: 600 !important;
+  padding: .45rem 1rem !important;
+  cursor: pointer !important;
+  transition: opacity .15s !important;
+}
+.financo-tour-popover .driver-popover-prev-btn {
+  background: hsl(var(--secondary)) !important;
+  color: hsl(var(--secondary-foreground)) !important;
+}
+.financo-tour-popover .driver-popover-next-btn:hover,
+.financo-tour-popover .driver-popover-done-btn:hover {
+  opacity: .88 !important;
+}
+.financo-tour-popover .driver-popover-close-btn {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 1.1rem !important;
+}
+.financo-tour-popover .driver-popover-close-btn:hover {
+  color: hsl(var(--foreground)) !important;
+}
+.financo-tour-popover .driver-popover-progress-text {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: .75rem !important;
+}
+.driver-overlay {
+  background: rgba(0,0,0,.72) !important;
+}
 
 @layer base {
   :root {

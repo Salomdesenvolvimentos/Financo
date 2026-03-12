@@ -183,6 +183,7 @@ export function Sidebar({
 
       {/* Sidebar */}
       <div
+        id="tour-sidebar"
         className={`fixed left-0 top-0 h-full sidebar-gradient border-r border-border z-50 transition-all duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } w-64`}
@@ -207,8 +208,10 @@ export function Sidebar({
               if (entry.type === 'item') {
                 const { icon: Icon, label, href } = entry.data as NavItem;
                 const active = isItemActive(href);
+                const tourId = href.split('/').pop();
                 return (
                   <Link
+                    id={`tour-nav-${tourId}`}
                     key={href}
                     href={href}
                     onClick={isCollapsible ? onClose : undefined}
@@ -238,6 +241,7 @@ export function Sidebar({
                 >
                   {/* Cabeçalho do grupo */}
                   <button
+                    id={`tour-group-${id}`}
                     onClick={() => toggleGroup(id)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
                       hasActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'

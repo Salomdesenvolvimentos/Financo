@@ -14,6 +14,7 @@ import { Sidebar } from '@/components/navbar-sidebar';
 import { NavbarTop } from '@/components/navbar-top';
 import { Loader2, Menu } from 'lucide-react';
 import { AIChatBot } from '@/components/ai-chatbot';
+import { SiteTour } from '@/components/site-tour';
 
 export default function DashboardLayoutNew({
   children,
@@ -109,6 +110,7 @@ export default function DashboardLayoutNew({
           </div>
         </main>
         <AIChatBot />
+        <SiteTour />
       </div>
     );
   }

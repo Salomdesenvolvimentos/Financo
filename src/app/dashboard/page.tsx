@@ -557,7 +557,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Indicadores Principais */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div id="tour-kpi-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Receita Total */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -630,6 +630,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Configurável — grade de cards */}
+      <div id="tour-charts-grid" className="contents" />
       {editMode && (
         <div className="flex items-center gap-2 p-3 border border-primary/40 bg-primary/5 rounded-lg text-sm">
           <Pencil className="h-4 w-4 text-primary flex-shrink-0" />
