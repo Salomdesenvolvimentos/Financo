@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useMenuSettings, MenuPosition, MenuBehavior } from '@/hooks/use-menu-settings';
 import { usePlan } from '@/hooks/use-plan';
+import { useFriendRequests } from '@/hooks/use-friend-requests';
 import { Sidebar } from '@/components/navbar-sidebar';
 import { NavbarTop } from '@/components/navbar-top';
 import { Loader2, Menu } from 'lucide-react';
@@ -25,6 +26,7 @@ export default function DashboardLayoutNew({
   const router = useRouter();
   const { settings: menuSettings } = useMenuSettings();
   const { isPremium } = usePlan();
+  const { pendingCount: friendRequestCount } = useFriendRequests();
 
   // Free plan: always sidebar fixed
   const effectivePosition: MenuPosition = isPremium ? menuSettings.position : 'side';
@@ -86,6 +88,7 @@ export default function DashboardLayoutNew({
           darkMode={darkMode}
           onToggleTheme={toggleTheme}
           isCollapsible={effectiveBehavior === 'collapsible'}
+          friendRequestCount={friendRequestCount}
         />
 
         {/* Botão toggle para sidebar colapsável */}
@@ -127,6 +130,7 @@ export default function DashboardLayoutNew({
         isMenuOpen={mobileMenuOpen}
         isCollapsible={effectiveBehavior === 'collapsible'}
         hidden={navbarHidden}
+        friendRequestCount={friendRequestCount}
       />
 
       {/* Tab central para ocultar/mostrar navbar — sempre visível */}

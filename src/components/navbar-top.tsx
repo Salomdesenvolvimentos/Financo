@@ -44,6 +44,7 @@ interface NavbarTopProps {
   isMenuOpen: boolean;
   isCollapsible: boolean;
   hidden?: boolean;
+  friendRequestCount?: number;
 }
 
 type NavItem  = { icon: React.ElementType; label: string; href: string };
@@ -87,6 +88,7 @@ export function NavbarTop({
   isMenuOpen,
   isCollapsible,
   hidden = false,
+  friendRequestCount = 0,
 }: NavbarTopProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -179,6 +181,11 @@ export function NavbarTop({
                     >
                       <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-primary' : ''}`} />
                       <span>{item.label}</span>
+                      {item.href === '/dashboard/social' && friendRequestCount > 0 && (
+                        <span className="min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                          {friendRequestCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 }
@@ -297,6 +304,11 @@ export function NavbarTop({
                       >
                         <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : ''}`} />
                         <span>{item.label}</span>
+                        {item.href === '/dashboard/social' && friendRequestCount > 0 && (
+                          <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                            {friendRequestCount}
+                          </span>
+                        )}
                       </Link>
                     );
                   }

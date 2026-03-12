@@ -47,6 +47,7 @@ interface SidebarProps {
   darkMode: boolean;
   onToggleTheme: () => void;
   isCollapsible: boolean;
+  friendRequestCount?: number;
 }
 
 export function Sidebar({ 
@@ -55,7 +56,8 @@ export function Sidebar({
   userName, 
   darkMode, 
   onToggleTheme,
-  isCollapsible 
+  isCollapsible,
+  friendRequestCount = 0,
 }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -242,7 +244,13 @@ export function Sidebar({
                   >
                     <Icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
                     <span className="truncate">{label}</span>
-                    {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />}
+                    {href === '/dashboard/social' && friendRequestCount > 0 && (
+                      <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                        {friendRequestCount}
+                      </span>
+                    )}
+                    {active && href !== '/dashboard/social' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />}
+                    {active && href === '/dashboard/social' && friendRequestCount === 0 && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />}
                   </Link>
                 );
               }
