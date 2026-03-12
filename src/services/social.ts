@@ -62,9 +62,14 @@ export async function sendFriendRequest(
   requesterId: string,
   addresseeId: string
 ): Promise<{ error: string | null }> {
+  // Usa upsert para evitar violação de unique constraint se já houver
+  // um registro anterior (declined, pending reomovido, etc.)
   const { error } = await supabase
     .from('friendships')
-    .insert({ requester_id: requesterId, addressee_id: addresseeId, status: 'pending' });
+    .upsert(
+      { requester_id: requesterId, addressee_id: addresseeId, status: 'pending' },
+      { onConflict: 'requester_id,addressee_id', ignoreDuplicates: false }
+    );
   return { error: error?.message ?? null };
 }
 
