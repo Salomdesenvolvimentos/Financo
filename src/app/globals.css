@@ -63,6 +63,13 @@
 .driver-overlay {
   background: rgba(0,0,0,.72) !important;
 }
+/* Destaque claro no elemento em foco */
+.driver-active-element,
+.driver-highlighted-element {
+  outline: 3px solid hsl(var(--primary)) !important;
+  outline-offset: 3px !important;
+  border-radius: 10px !important;
+}
 
 @layer base {
   :root {

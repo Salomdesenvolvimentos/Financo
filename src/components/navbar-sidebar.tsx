@@ -122,6 +122,28 @@ export function Sidebar({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // Expandir/recolher grupos para o tour interativo
+  useEffect(() => {
+    const expand = () => setExpandedGroups(new Set(['financas', 'metas']));
+    const collapse = () => {
+      const active = new Set<string>();
+      navEntries.forEach(e => {
+        if (e.type === 'group') {
+          const g = e.data as NavGroup;
+          if (g.items.some(i => pathname === i.href || pathname.startsWith(i.href))) active.add(g.id);
+        }
+      });
+      setExpandedGroups(active);
+    };
+    window.addEventListener('financo:tour-start', expand);
+    window.addEventListener('financo:tour-end', collapse);
+    return () => {
+      window.removeEventListener('financo:tour-start', expand);
+      window.removeEventListener('financo:tour-end', collapse);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   const toggleGroup = (id: string) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
@@ -260,8 +282,10 @@ export function Sidebar({
                       {items.map(item => {
                         const ItemIcon = item.icon;
                         const active = isItemActive(item.href);
+                        const subId = item.href.split('/').pop();
                         return (
                           <Link
+                            id={`tour-nav-${subId}`}
                             key={item.href}
                             href={item.href}
                             onClick={isCollapsible ? onClose : undefined}
