@@ -402,21 +402,4 @@ export function Sidebar({
   );
 }
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      toast({
-        title: "Logout realizado",
-        description: "Você foi desconectado com sucesso.",
-      });
-      router.push('/login');
-    } catch (error) {
-      toast({
-        title: "Erro ao sair",
-        description: "Ocorreu um erro ao tentar sair.",
-        variant: "destructive",
-      });
-    }
-  };
-}
 
