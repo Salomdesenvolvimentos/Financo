@@ -33,6 +33,8 @@ import {
   Trophy,
   Crown,
   Shield,
+  Users,
+  Target,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -117,6 +119,16 @@ export function Sidebar({
       icon: Trophy,
       label: "Desafios",
       href: "/dashboard/challenges",
+    },
+    {
+      icon: Target,
+      label: "Lista de Desejos",
+      href: "/dashboard/wishlist",
+    },
+    {
+      icon: Users,
+      label: "Social",
+      href: "/dashboard/social",
     },
     {
       icon: Upload,

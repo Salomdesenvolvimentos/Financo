@@ -249,6 +249,109 @@ export interface ToastMessage {
 }
 
 // ============================================
+// Tipos: Sistema Social (Amigos, Conquistas, Desafios em Dupla)
+// ============================================
+
+export interface Profile {
+  id: string;
+  display_name: string;
+  avatar_emoji: string;
+  bio?: string;
+  total_points: number;
+  email?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type FriendshipStatus = 'pending' | 'accepted' | 'declined';
+
+export interface Friendship {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: FriendshipStatus;
+  created_at: string;
+  updated_at: string;
+  // Dados do amigo (join)
+  requester?: Profile;
+  addressee?: Profile;
+}
+
+export interface AchievementDefinition {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string;
+  category: string;
+  points: number;
+}
+
+export interface UserAchievement {
+  id: string;
+  user_id: string;
+  achievement_id: string;
+  earned_at: string;
+  // Joins
+  achievement_definitions?: AchievementDefinition;
+  profiles?: Profile;
+}
+
+export type DuoChallengeStatus = 'pending' | 'accepted' | 'declined' | 'active' | 'completed';
+
+export interface DuoChallenge {
+  id: string;
+  challenge_id: string;
+  title: string;
+  description?: string;
+  emoji: string;
+  target: number;
+  category: string;
+  requester_id: string;
+  addressee_id: string;
+  requester_progress: number;
+  addressee_progress: number;
+  requester_completed: boolean;
+  addressee_completed: boolean;
+  status: DuoChallengeStatus;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  requester?: Profile;
+  addressee?: Profile;
+}
+
+// ============================================
+// Tipos: Lista de Desejos / Metas Financeiras
+// ============================================
+
+export interface WishlistGoal {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  emoji: string;
+  target_amount: number;
+  current_amount: number;
+  deadline?: string;
+  category: string;
+  completed: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WishlistGoalFormData {
+  title: string;
+  description?: string;
+  emoji: string;
+  target_amount: number;
+  current_amount?: number;
+  deadline?: string;
+  category: string;
+  priority?: number;
+}
+
+// ============================================
 // Tipos para Estado Global (Zustand)
 // ============================================
 
