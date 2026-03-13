@@ -132,9 +132,12 @@ export default function DashboardPage() {
   const [layouts, setLayouts] = useState<CardLayout[]>(DEFAULT_CARD_LAYOUTS);
   const [layoutSnapshot, setLayoutSnapshot] = useState<CardLayout[]>(DEFAULT_CARD_LAYOUTS);
 
+  // Beginner mode
+  const [beginnerMode, setBeginnerMode] = useState(false);
 
-  // Carregar layout salvo
+  // Carregar layout salvo e preferências
   useEffect(() => {
+    setBeginnerMode(localStorage.getItem('financo_beginner_mode') === 'true');
     try {
       const saved = localStorage.getItem(LAYOUT_KEY);
       if (saved) {
@@ -261,6 +264,17 @@ export default function DashboardPage() {
   // Função para calcular saúde financeira personalizada
   const calculateCustomHealthScore = (summary: any, threshold: number) => {
     if (!summary) return null;
+
+    // Detectar ausência de dados — evitar mostrar "crítico" sem motivo
+    if (!summary.receita_total && !summary.despesa_total) {
+      return {
+        score: 0,
+        status: 'aguardando',
+        mensagem: 'Nenhuma transação registrada neste período. Adicione receitas e despesas para ver sua saúde financeira.',
+        percentualEconomia: 0,
+        threshold,
+      };
+    }
 
     // Correção: usar receita_total e despesa_total em vez de total_receitas
     const percentualEconomia = summary.receita_total > 0 
@@ -437,6 +451,100 @@ export default function DashboardPage() {
 
   // Cores para os gráficos
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+  // ─── Modo Iniciante ───────────────────────────────────────────────────────────
+  if (beginnerMode) {
+    const score = financialScore as any;
+    const saldo = summary.saldo;
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Olá, {user?.nome?.split(' ')[0] || 'Usuário'} 👋</h1>
+            <p className="text-muted-foreground text-sm">Aqui está o resumo financeiro de {getMonthName(selectedMonth)}.</p>
+          </div>
+          <a href="/dashboard/settings" className="text-xs text-primary underline underline-offset-2 whitespace-nowrap">Desativar modo iniciante</a>
+        </div>
+
+        {/* KPIs simples */}
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <Card className="border-success/30 bg-success/5">
+            <CardContent className="pt-5 pb-4">
+              <p className="text-xs text-muted-foreground mb-1">💰 Quanto entrou</p>
+              <p className="text-2xl font-bold text-success">{formatCurrency(summary.receita_total)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Salário, freelances, etc.</p>
+            </CardContent>
+          </Card>
+          <Card className="border-danger/30 bg-danger/5">
+            <CardContent className="pt-5 pb-4">
+              <p className="text-xs text-muted-foreground mb-1">💸 Quanto saiu</p>
+              <p className="text-2xl font-bold text-danger">{formatCurrency(summary.despesa_total)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Contas, compras, etc.</p>
+            </CardContent>
+          </Card>
+          <Card className={`border-${saldo >= 0 ? 'success' : 'danger'}/30 bg-${saldo >= 0 ? 'success' : 'danger'}/5`}>
+            <CardContent className="pt-5 pb-4">
+              <p className="text-xs text-muted-foreground mb-1">{saldo >= 0 ? '✅ Sobrou' : '❌ Faltou'}</p>
+              <p className={`text-2xl font-bold ${saldo >= 0 ? 'text-success' : 'text-danger'}`}>{formatCurrency(Math.abs(saldo))}</p>
+              <p className="text-xs text-muted-foreground mt-1">{saldo >= 0 ? 'Você gastou menos do que ganhou!' : 'Você gastou mais do que ganhou.'}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Saúde financeira simples */}
+        <Card>
+          <CardContent className="pt-5 pb-5 space-y-3">
+            <p className="text-sm font-semibold">🏥 Sua saúde financeira</p>
+            {score.status === 'aguardando' ? (
+              <p className="text-sm text-muted-foreground">Ainda não há dados suficientes. Registre suas receitas e despesas para ver sua pontuação.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className={`text-3xl font-bold ${score.status === 'excelente' ? 'text-success' : score.status === 'bom' ? 'text-primary' : score.status === 'alerta' ? 'text-warning' : 'text-danger'}`}>
+                    {score.score}<span className="text-base font-normal text-muted-foreground">/100</span>
+                  </div>
+                  <div className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${score.status === 'excelente' ? 'bg-success/10 text-success' : score.status === 'bom' ? 'bg-primary/10 text-primary' : score.status === 'alerta' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'}`}>
+                    {score.status}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">{score.mensagem}</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Guia de próximos passos */}
+        <Card>
+          <CardContent className="pt-5 pb-5 space-y-3">
+            <p className="text-sm font-semibold">📚 O que fazer agora?</p>
+            <div className="space-y-2.5 text-sm text-muted-foreground">
+              <div className="flex items-start gap-2.5">
+                <span className="text-base">1️⃣</span>
+                <span><strong className="text-foreground">Registre todas as suas receitas</strong> — vá em <a href="/dashboard/transactions" className="text-primary underline">Transações</a> e adicione seus salários e outras entradas do mês.</span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="text-base">2️⃣</span>
+                <span><strong className="text-foreground">Anote cada gasto</strong> — mesmo os pequenos contam. Inclua mercado, transporte, lazer e contas.</span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="text-base">3️⃣</span>
+                <span><strong className="text-foreground">Configure seus gastos fixos</strong> — em <a href="/dashboard/fixed-expenses" className="text-primary underline">Gastos Fixos</a> você cadastra aluguel, internet e assinaturas para não esquecer.</span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="text-base">4️⃣</span>
+                <span><strong className="text-foreground">Tente guardar pelo menos 20% da renda</strong> — a regra 50/30/20 diz: metade para necessidades, 30% para desejos, e 20% guardados.</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <p className="text-xs text-center text-muted-foreground pb-2">
+          Pronto para o modo completo?{' '}
+          <a href="/dashboard/settings" className="text-primary underline underline-offset-2">Desative o Modo Iniciante nas configurações.</a>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -649,7 +757,8 @@ export default function DashboardPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className={`text-base flex items-center gap-2 ${
-                    (financialScore as any).status === 'crítico' ? 'text-danger' : ''
+                    (financialScore as any).status === 'crítico' ? 'text-danger' :
+                    (financialScore as any).status === 'aguardando' ? 'text-muted-foreground' : ''
                   }`}>
                     Saúde Financeira
                 {(financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0 && (
@@ -668,15 +777,20 @@ export default function DashboardPage() {
                     <option value={50}>Meta 50%</option>
                   </select>
                 </div>
-                <CardDescription className={`${
-                  (financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia <= 0
-                    ? 'text-danger font-medium' : ''
-                }`}>
+                <CardDescription className={(financialScore as any).status === 'crítico' && (financialScore as any).percentualEconomia < 0 ? 'text-danger font-medium' : ''}>
                   {financialScore.mensagem}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
+                {(financialScore as any).status === 'aguardando' ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
+                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+                      <PiggyBank className="h-7 w-7 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground max-w-[200px]">Adicione transações para visualizar sua saúde financeira</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4">
                   <div className="relative w-20 h-20 flex-shrink-0">
                     <div className="w-20 h-20 rounded-full border-6 border-muted flex items-center justify-center">
                       <div className={`absolute inset-0 rounded-full border-6 transition-all ${
@@ -721,7 +835,8 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
@@ -954,7 +1069,7 @@ export default function DashboardPage() {
                               <span className="text-sm font-medium truncate">{card.name}</span>
                               <span className="text-xs text-muted-foreground whitespace-nowrap">({card.count}x)</span>
                             </div>
-                            <span className={`text-sm font-bold ml-2 whitespace-nowrap ${card.total < 0 ? 'text-danger' : 'text-success'}`}>
+                            <span className="text-sm font-bold ml-2 whitespace-nowrap text-danger">
                               {formatCurrency(Math.abs(card.total))}
                             </span>
                           </div>
@@ -962,7 +1077,7 @@ export default function DashboardPage() {
                         <div className="flex justify-between pt-1 border-t text-xs">
                           <span className="text-muted-foreground">Total no cartão</span>
                           <span className="font-bold text-danger">
-                            {formatCurrency(cardData.reduce((sum: number, c: any) => sum + (c.total < 0 ? Math.abs(c.total) : 0), 0))}
+                            {formatCurrency(cardData.reduce((sum: number, c: any) => sum + Math.abs(c.total), 0))}
                           </span>
                         </div>
                       </div>

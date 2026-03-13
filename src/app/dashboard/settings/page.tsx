@@ -62,6 +62,7 @@ export default function SettingsPageNew() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showTicker, setShowTicker] = useState(true);
+  const [beginnerMode, setBeginnerMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form para nova categoria
@@ -81,6 +82,7 @@ export default function SettingsPageNew() {
       if (savedTheme === 'dark') setDarkMode(true);
 
       setShowTicker(localStorage.getItem('show_crypto_ticker') !== 'false');
+      setBeginnerMode(localStorage.getItem('financo_beginner_mode') === 'true');
     }
   }, [user]);
 
@@ -343,28 +345,45 @@ export default function SettingsPageNew() {
             <CardContent className="pt-6 space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <Layout className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Posição</span>
+                <span className="text-sm font-medium">Posição do menu</span>
               </div>
               <div className="grid grid-cols-2 gap-2" role="group" aria-label="Posição do menu">
-                {(['top', 'side'] as const).map((pos) => (
-                  <button
-                    key={pos}
-                    type="button"
-                    aria-pressed={menuSettings.position === pos}
-                    onClick={() => updatePosition(pos)}
-                    disabled={!isPremium}
-                    className={`flex flex-col items-center justify-center gap-2 py-3 rounded-xl border-2 text-xs font-medium transition-all ${
-                      menuSettings.position === pos
-                        ? 'border-primary bg-accent text-accent-foreground'
-                        : 'border-border hover:border-primary/40 text-muted-foreground'
-                    }`}
-                  >
-                    {pos === 'top'
-                      ? <div className="w-10 h-1.5 bg-current rounded-full" />
-                      : <div className="w-1.5 h-8 bg-current rounded-full" />}
-                    {pos === 'top' ? 'Topo' : 'Lateral'}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  aria-pressed={menuSettings.position === 'top'}
+                  onClick={() => updatePosition('top')}
+                  disabled={!isPremium}
+                  className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl border-2 text-xs font-medium transition-all ${
+                    menuSettings.position === 'top'
+                      ? 'border-primary bg-accent text-accent-foreground'
+                      : 'border-border hover:border-primary/40 text-muted-foreground'
+                  }`}
+                >
+                  {/* Preview: top bar */}
+                  <div className="w-14 h-9 rounded border border-current opacity-70 overflow-hidden flex flex-col">
+                    <div className="h-2.5 bg-current w-full" />
+                    <div className="flex-1 bg-current opacity-10" />
+                  </div>
+                  Menu no topo
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={menuSettings.position === 'side'}
+                  onClick={() => updatePosition('side')}
+                  disabled={!isPremium}
+                  className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl border-2 text-xs font-medium transition-all ${
+                    menuSettings.position === 'side'
+                      ? 'border-primary bg-accent text-accent-foreground'
+                      : 'border-border hover:border-primary/40 text-muted-foreground'
+                  }`}
+                >
+                  {/* Preview: side bar */}
+                  <div className="w-14 h-9 rounded border border-current opacity-70 overflow-hidden flex flex-row">
+                    <div className="w-3.5 bg-current h-full" />
+                    <div className="flex-1 bg-current opacity-10" />
+                  </div>
+                  Menu lateral
+                </button>
               </div>
             </CardContent>
           </Card>
@@ -373,28 +392,51 @@ export default function SettingsPageNew() {
             <CardContent className="pt-6 space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <MenuIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Comportamento</span>
+                <span className="text-sm font-medium">Comportamento do menu</span>
               </div>
               <div className="grid grid-cols-2 gap-2" role="group" aria-label="Comportamento do menu">
-                {(['fixed', 'collapsible'] as const).map((beh) => (
-                  <button
-                    key={beh}
-                    type="button"
-                    aria-pressed={menuSettings.behavior === beh}
-                    onClick={() => updateBehavior(beh)}
-                    disabled={!isPremium}
-                    className={`flex flex-col items-center justify-center gap-2 py-3 rounded-xl border-2 text-xs font-medium transition-all ${
-                      menuSettings.behavior === beh
-                        ? 'border-primary bg-accent text-accent-foreground'
-                        : 'border-border hover:border-primary/40 text-muted-foreground'
-                    }`}
-                  >
-                    {beh === 'fixed'
-                      ? <div className="w-7 h-7 bg-current rounded-md" />
-                      : <div className="w-7 h-7 border-2 border-current rounded-md" />}
-                    {beh === 'fixed' ? 'Fixo' : 'Suspenso'}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  aria-pressed={menuSettings.behavior === 'fixed'}
+                  onClick={() => updateBehavior('fixed')}
+                  disabled={!isPremium}
+                  className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl border-2 text-xs font-medium transition-all ${
+                    menuSettings.behavior === 'fixed'
+                      ? 'border-primary bg-accent text-accent-foreground'
+                      : 'border-border hover:border-primary/40 text-muted-foreground'
+                  }`}
+                >
+                  {/* Preview: always visible sidebar */}
+                  <div className="w-14 h-9 rounded border border-current opacity-70 overflow-hidden flex flex-row">
+                    <div className="w-3.5 bg-current h-full flex flex-col justify-center gap-0.5 px-0.5">
+                      <div className="h-0.5 bg-white/50 rounded-full" />
+                      <div className="h-0.5 bg-white/50 rounded-full" />
+                      <div className="h-0.5 bg-white/40 rounded-full w-2/3" />
+                    </div>
+                    <div className="flex-1 bg-current opacity-10" />
+                  </div>
+                  Sempre visível
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={menuSettings.behavior === 'collapsible'}
+                  onClick={() => updateBehavior('collapsible')}
+                  disabled={!isPremium}
+                  className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl border-2 text-xs font-medium transition-all ${
+                    menuSettings.behavior === 'collapsible'
+                      ? 'border-primary bg-accent text-accent-foreground'
+                      : 'border-border hover:border-primary/40 text-muted-foreground'
+                  }`}
+                >
+                  {/* Preview: collapsible sidebar with arrow */}
+                  <div className="w-14 h-9 rounded border border-current opacity-70 overflow-hidden flex flex-row relative">
+                    <div className="flex-1 bg-current opacity-10" />
+                    <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 border border-current rounded-sm flex items-center justify-center opacity-70">
+                      <span className="text-[6px] font-bold">≡</span>
+                    </div>
+                  </div>
+                  Recolhível
+                </button>
               </div>
             </CardContent>
           </Card>
@@ -404,31 +446,63 @@ export default function SettingsPageNew() {
       {/* ── Preferências ── */}
       <section aria-labelledby="section-prefs">
         <h2 id="section-prefs" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Preferências</h2>
-        <Card className="card-hover">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+        <div className="flex flex-col gap-3">
+          <Card className="card-hover">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Ticker de Criptomoedas</p>
+                    <p className="text-xs text-muted-foreground">Exibir letreiro com preços ao vivo em Investimentos</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-sm">Ticker de Criptomoedas</p>
-                  <p className="text-xs text-muted-foreground">Exibir letreiro com preços ao vivo em Investimentos</p>
-                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showTicker}
+                  aria-label="Mostrar ticker de criptomoedas"
+                  onClick={() => toggleTicker(!showTicker)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${showTicker ? 'bg-primary' : 'bg-input'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${showTicker ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={showTicker}
-                aria-label="Mostrar ticker de criptomoedas"
-                onClick={() => toggleTicker(!showTicker)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${showTicker ? 'bg-primary' : 'bg-input'}`}
-              >
-                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${showTicker ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
+                    <SettingsIcon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Modo Iniciante</p>
+                    <p className="text-xs text-muted-foreground">Dashboard simplificado com explicações passo a passo</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={beginnerMode}
+                  aria-label="Ativar modo iniciante"
+                  onClick={() => {
+                    const next = !beginnerMode;
+                    setBeginnerMode(next);
+                    localStorage.setItem('financo_beginner_mode', next ? 'true' : 'false');
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${beginnerMode ? 'bg-primary' : 'bg-input'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transition-transform ${beginnerMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       {/* ── Botão Salvar ── */}

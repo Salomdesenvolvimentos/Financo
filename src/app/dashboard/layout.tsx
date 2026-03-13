@@ -31,7 +31,16 @@ export default function DashboardLayoutNew({
   // Free plan: always sidebar fixed
   const effectivePosition: MenuPosition = isPremium ? menuSettings.position : 'side';
   const effectiveBehavior: MenuBehavior = isPremium ? menuSettings.behavior : 'fixed';
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+        return true;
+      }
+    }
+    return false;
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navbarHidden, setNavbarHidden] = useState(false);
 
@@ -40,15 +49,6 @@ export default function DashboardLayoutNew({
       router.push('/');
     }
   }, [user, loading, router]);
-
-  // Carregar tema do localStorage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setDarkMode(true);
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
 
   const toggleTheme = () => {
     const newDarkMode = !darkMode;

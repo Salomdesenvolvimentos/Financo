@@ -213,8 +213,7 @@ export function Sidebar({
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-border">
           <Link href="/dashboard" className="flex items-center gap-2.5 group" aria-label="Voltar ao Dashboard">
-            <Image src={darkMode ? logoBranco : logoPreto} alt="Financo" width={28} height={28} className="rounded-lg" />
-            <span className="text-lg font-bold tracking-tight">Financo</span>
+            <Image src={darkMode ? logoBranco : logoPreto} alt="Financo" width={110} height={32} className="object-contain" />
           </Link>
           {isCollapsible && (
             <button aria-label="Fechar menu" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
