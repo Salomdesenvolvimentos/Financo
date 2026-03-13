@@ -31,6 +31,7 @@ import {
   Sun,
   Moon,
   CreditCard,
+  Wallet,
   Cog,
 } from 'lucide-react';
 
@@ -78,6 +79,7 @@ export function Navbar({ userName }: NavbarProps) {
     { href: '/dashboard/transactions', label: 'Transações', icon: Receipt },
     { href: '/dashboard/fixed-expenses', label: 'Gastos Fixos', icon: CreditCard },
     { href: '/dashboard/fixed-income', label: 'Rendas Fixas', icon: DollarSign },
+    { href: '/dashboard/credit-cards', label: 'Cartões', icon: Wallet },
     { href: '/dashboard/import', label: 'Importar', icon: Upload },
     { href: '/dashboard/settings', label: 'Configurações', icon: Settings },
   ];

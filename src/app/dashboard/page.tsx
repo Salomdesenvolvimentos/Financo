@@ -706,8 +706,8 @@ export default function DashboardPage() {
             >
               {formatCurrency(summary.saldo)}
             </div>
-            <p className="text-muted-foreground">
-              Economia: {((summary as any).economia_percentual || 0).toFixed(1)}%
+            <p className="text-xs text-muted-foreground">
+              {summary.saldo >= 0 ? 'Receitas - Despesas' : 'Despesas acima das receitas'}
             </p>
           </CardContent>
         </Card>

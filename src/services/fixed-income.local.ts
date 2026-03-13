@@ -15,7 +15,7 @@ export async function getFixedIncome(userId: string): Promise<{ data: FixedIncom
   try {
     const { data, error } = await supabase
       .from('fixed_income')
-      .select('*')
+      .select('*, categoria:categories(*)')
       .eq('user_id', userId)
       .eq('ativo', true)
       .order('dia_recebimento', { ascending: true });

@@ -40,8 +40,11 @@ import {
   deleteFixedIncome,
   validateFixedIncomeForm,
 } from '@/services/fixed-income.local';
-import type { FixedIncome, FixedIncomeFormData } from '@/types';
+import { getCategories } from '@/services/categories.local';
+import type { FixedIncome, FixedIncomeFormData, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
+import { CategoryModal } from '@/components/category-modal';
+import Link from 'next/link';
 import {
   Plus,
   Edit,
@@ -49,11 +52,15 @@ import {
   DollarSign,
   AlertCircle,
   Loader2,
+  Tag,
+  ChevronDown,
+  Pencil,
 } from 'lucide-react';
 
 export default function FixedIncomePage() {
   const { user } = useAuth();
   const [income, setIncome] = useState<FixedIncome[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState<FixedIncome | null>(null);
@@ -66,6 +73,8 @@ export default function FixedIncomePage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
   // Carregar dados
   useEffect(() => {
@@ -74,10 +83,17 @@ export default function FixedIncomePage() {
     async function loadData() {
       setLoading(true);
       
-      const result = await getFixedIncome(user!.id);
+      const [incomeResult, categoriesResult] = await Promise.all([
+        getFixedIncome(user!.id),
+        getCategories(user!.id),
+      ]);
       
-      if (result.data) {
-        setIncome(result.data);
+      if (incomeResult.data) {
+        setIncome(incomeResult.data);
+      }
+
+      if (categoriesResult.data) {
+        setCategories(categoriesResult.data);
       }
 
       setLoading(false);
@@ -220,6 +236,7 @@ export default function FixedIncomePage() {
           </p>
         </div>
 
+        <div className="flex gap-2 items-center">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => openDialog()}>
@@ -261,10 +278,12 @@ export default function FixedIncomePage() {
                   <Label htmlFor="valor">Valor</Label>
                   <Input
                     id="valor"
-                    type="number"
-                    step="0.01"
-                    value={formData.valor}
-                    onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
+                    value={formData.valor > 0 ? formData.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      const value = parseInt(digits || '0', 10) / 100;
+                      setFormData({ ...formData, valor: value });
+                    }}
                     placeholder="0,00"
                   />
                   {formErrors.valor && (
@@ -316,6 +335,26 @@ export default function FixedIncomePage() {
                   )}
                 </div>
 
+                {/* Categoria */}
+                <div className="grid gap-2">
+                  <Label htmlFor="categoria_id">Categoria</Label>
+                  <Select
+                    value={(formData as any).categoria_id || ''}
+                    onValueChange={(value) => setFormData({ ...formData, categoria_id: value } as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Ativo */}
                 <div className="flex items-center space-x-2">
                   <input
@@ -355,6 +394,40 @@ export default function FixedIncomePage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Categoria dropdown */}
+        <div className="relative">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setCategoryDropdownOpen((v) => !v)}
+          >
+            <Tag className="h-4 w-4" />
+            Categoria
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+          {categoryDropdownOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setCategoryDropdownOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-background border rounded-lg shadow-lg overflow-hidden">
+                <button
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
+                  onClick={() => { setCategoryModalOpen(true); setCategoryDropdownOpen(false); }}
+                >
+                  <Plus className="h-4 w-4" /> Nova Categoria
+                </button>
+                <Link
+                  href="/dashboard/settings"
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
+                  onClick={() => setCategoryDropdownOpen(false)}
+                >
+                  <Pencil className="h-4 w-4" /> Editar Categorias
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+        </div>
       </div>
 
       {/* Resumo */}
@@ -494,6 +567,18 @@ export default function FixedIncomePage() {
           )}
         </CardContent>
       </Card>
+      <CategoryModal
+        isOpen={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        onCategoryCreated={() => {
+          if (user) {
+            getCategories(user.id).then((r) => {
+              if (r.data) setCategories(r.data);
+            });
+          }
+        }}
+        defaultType="receita"
+      />
     </div>
   );
 }

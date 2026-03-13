@@ -256,6 +256,7 @@ export interface Profile {
   id: string;
   display_name: string;
   avatar_emoji: string;
+  avatar_url?: string;
   bio?: string;
   total_points: number;
   email?: string;
@@ -402,9 +403,11 @@ export interface FixedIncome {
   valor: number;
   dia_recebimento: number; // 1-31
   tipo: 'salario' | 'adiantamento' | 'outro';
+  categoria_id?: string;
   ativo: boolean;
   created_at: string;
   updated_at: string;
+  categoria?: Category;
 }
 
 export interface FixedExpenseFormData {
@@ -420,6 +423,7 @@ export interface FixedIncomeFormData {
   valor: number;
   dia_recebimento: number;
   tipo: 'salario' | 'adiantamento' | 'outro';
+  categoria_id?: string;
   ativo: boolean;
 }
 
@@ -535,4 +539,49 @@ export interface Subscription {
   canceled_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================
+// Tipos: Cartões de Crédito e Faturas
+// ============================================
+
+export interface CreditCard {
+  id: string;
+  user_id: string;
+  nome: string;
+  banco?: string;
+  limite: number;
+  dia_fechamento: number; // 1-31
+  dia_vencimento: number; // 1-31
+  cor?: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreditCardFormData {
+  nome: string;
+  banco?: string;
+  limite: number;
+  dia_fechamento: number;
+  dia_vencimento: number;
+  cor?: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  descricao: string;
+  valor: number;
+  data_transacao: string;
+  parcela_atual?: number;
+  total_parcelas?: number;
+  categoria?: { nome: string; cor?: string };
+}
+
+export interface Invoice {
+  cartao: CreditCard;
+  mes: string; // "YYYY-MM"
+  vencimento: string; // data ISO
+  itens: InvoiceItem[];
+  total: number;
 }

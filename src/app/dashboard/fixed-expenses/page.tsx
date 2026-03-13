@@ -43,6 +43,8 @@ import {
 import { getCategories } from '@/services/categories.local';
 import type { FixedExpense, FixedExpenseFormData, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
+import { CategoryModal } from '@/components/category-modal';
+import Link from 'next/link';
 import {
   Plus,
   Edit,
@@ -52,6 +54,9 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Tag,
+  ChevronDown,
+  Pencil,
 } from 'lucide-react';
 
 export default function FixedExpensesPage() {
@@ -72,6 +77,8 @@ export default function FixedExpensesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
   // Carregar dados
   useEffect(() => {
@@ -226,6 +233,7 @@ export default function FixedExpensesPage() {
           </p>
         </div>
 
+        <div className="flex gap-2 items-center">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => openDialog()}>
@@ -267,10 +275,12 @@ export default function FixedExpensesPage() {
                   <Label htmlFor="valor">Valor</Label>
                   <Input
                     id="valor"
-                    type="number"
-                    step="0.01"
-                    value={formData.valor}
-                    onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
+                    value={formData.valor > 0 ? formData.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      const value = parseInt(digits || '0', 10) / 100;
+                      setFormData({ ...formData, valor: value });
+                    }}
                     placeholder="0,00"
                   />
                   {formErrors.valor && (
@@ -363,6 +373,40 @@ export default function FixedExpensesPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Categoria dropdown */}
+        <div className="relative">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setCategoryDropdownOpen((v) => !v)}
+          >
+            <Tag className="h-4 w-4" />
+            Categoria
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+          {categoryDropdownOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setCategoryDropdownOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-background border rounded-lg shadow-lg overflow-hidden">
+                <button
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
+                  onClick={() => { setCategoryModalOpen(true); setCategoryDropdownOpen(false); }}
+                >
+                  <Plus className="h-4 w-4" /> Nova Categoria
+                </button>
+                <Link
+                  href="/dashboard/settings"
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
+                  onClick={() => setCategoryDropdownOpen(false)}
+                >
+                  <Pencil className="h-4 w-4" /> Editar Categorias
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+        </div>
       </div>
 
       {/* Resumo */}
@@ -504,6 +548,18 @@ export default function FixedExpensesPage() {
           )}
         </CardContent>
       </Card>
+      <CategoryModal
+        isOpen={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        onCategoryCreated={() => {
+          if (user) {
+            getCategories(user.id).then((r) => {
+              if (r.data) setCategories(r.data);
+            });
+          }
+        }}
+        defaultType="despesa"
+      />
     </div>
   );
 }

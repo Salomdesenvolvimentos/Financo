@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getCategories, createCategory, deleteCategory } from '@/services/categories.local';
+import { getCategories, createCategory, deleteCategory } from '@/services/categories.local';\nimport { upsertProfile } from '@/services/social';
 import type { Category, CategoryFormData } from '@/types';
 import { 
   User, 
@@ -113,6 +113,12 @@ export default function SettingsPageNew() {
       const result = e.target?.result as string;
       localStorage.setItem(`profile-image-${user.id}`, result);
       setProfileImage(result);
+
+      // Salvar no Supabase para que amigos possam ver a foto
+      upsertProfile(user.id, { avatar_url: result }).catch(() => {
+        // falha silenciosa — a foto ainda fica salva localmente
+      });
+
       setUploadingImage(false);
       
       toast({

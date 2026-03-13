@@ -38,7 +38,7 @@ export async function upsertProfile(
 export async function searchProfilesByEmail(query: string): Promise<Profile[]> {
   const { data } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_emoji, bio, total_points, email, created_at, updated_at')
+    .select('id, display_name, avatar_emoji, avatar_url, bio, total_points, email, created_at, updated_at')
     .ilike('email', `%${query}%`)
     .limit(10);
   return (data as Profile[]) ?? [];
@@ -58,7 +58,7 @@ export async function getMyFriendships(userId: string): Promise<Friendship[]> {
   const userIds = [...new Set((ships as any[]).flatMap(f => [f.requester_id, f.addressee_id]))];
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_emoji, total_points, email')
+    .select('id, display_name, avatar_emoji, avatar_url, total_points, email')
     .in('id', userIds);
 
   const profileMap: Record<string, any> = Object.fromEntries(

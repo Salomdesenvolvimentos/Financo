@@ -50,6 +50,7 @@ import type {
 import { formatCurrency, formatDate, formatDateISO } from '@/lib/utils';
 import { isFaturaByDescription, analyzeFaturaMatch } from '@/lib/credit-card-utils';
 import { CategoryModal } from '@/components/category-modal';
+import Link from 'next/link';
 import {
   Plus,
   Search,
@@ -59,6 +60,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  Tag,
+  ChevronDown,
+  Pencil,
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -84,6 +88,7 @@ export default function TransactionsPage() {
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
   // Cartões de crédito vindos do Pluggy (Open Finance)
   const [pluggyCreditCards, setPluggyCreditCards] = useState<any[]>([]);
@@ -720,14 +725,38 @@ export default function TransactionsPage() {
             <Plus className="h-4 w-4" />
             Nova
           </Button>
-          <Button
-            onClick={() => setCategoryModalOpen(true)}
-            variant="outline"
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Nova Categoria
-          </Button>
+          {/* Categoria dropdown */}
+          <div className="relative">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setCategoryDropdownOpen((v) => !v)}
+            >
+              <Tag className="h-4 w-4" />
+              Categoria
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+            {categoryDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setCategoryDropdownOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-background border rounded-lg shadow-lg overflow-hidden">
+                  <button
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
+                    onClick={() => { setCategoryModalOpen(true); setCategoryDropdownOpen(false); }}
+                  >
+                    <Plus className="h-4 w-4" /> Nova Categoria
+                  </button>
+                  <Link
+                    href="/dashboard/settings"
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
+                    onClick={() => setCategoryDropdownOpen(false)}
+                  >
+                    <Pencil className="h-4 w-4" /> Editar Categorias
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1245,12 +1274,13 @@ export default function TransactionsPage() {
                 <Label htmlFor="valor">Valor *</Label>
                 <Input
                   id="valor"
-                  type="number"
-                  step="0.01"
-                  value={formData.valor}
-                  onChange={(e) =>
-                    setFormData({ ...formData, valor: Number(e.target.value) })
-                  }
+                  value={formData.valor > 0 ? formData.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    const value = parseInt(digits || '0', 10) / 100;
+                    setFormData({ ...formData, valor: value });
+                  }}
+                  placeholder="0,00"
                 />
               </div>
 

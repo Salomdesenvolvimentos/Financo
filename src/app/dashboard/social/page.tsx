@@ -40,12 +40,50 @@ const DUO_PRESETS = [
 
 type Tab = 'friends' | 'requests' | 'achievements' | 'duels';
 
+/** Renderiza avatar: foto real (avatar_url) ou emoji fallback */
+function UserAvatar({
+  profile,
+  size = 'md',
+  localUrl,
+}: {
+  profile: Profile | null | undefined;
+  size?: 'sm' | 'md' | 'lg';
+  localUrl?: string;
+}) {
+  const sizeMap = { sm: 'w-8 h-8', md: 'w-12 h-12', lg: 'w-14 h-14' };
+  const textMap = { sm: 'text-lg', md: 'text-2xl', lg: 'text-3xl' };
+  const url = localUrl || profile?.avatar_url;
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={profile?.display_name ?? 'Usuário'}
+        className={`${sizeMap[size]} rounded-full object-cover flex-shrink-0`}
+      />
+    );
+  }
+  return (
+    <div className={`${sizeMap[size]} rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center flex-shrink-0`}>
+      <span className={textMap[size]}>{profile?.avatar_emoji ?? '😊'}</span>
+    </div>
+  );
+}
+
 export default function SocialPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [tab, setTab] = useState<Tab>('friends');
   const [loading, setLoading] = useState(true);
+  const [localProfileImage, setLocalProfileImage] = useState<string | undefined>();
+
+  // Carregar foto local do perfil do usuário
+  useEffect(() => {
+    if (user?.id) {
+      const saved = localStorage.getItem(`profile-image-${user.id}`);
+      if (saved) setLocalProfileImage(saved);
+    }
+  }, [user?.id]);
 
   // Dados
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
@@ -255,8 +293,8 @@ export default function SocialPage() {
         <Card className="border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30">
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-3xl">
-                {myProfile.avatar_emoji}
+          <div className="w-14 h-14 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-3xl overflow-hidden">
+                <UserAvatar profile={myProfile} size="lg" localUrl={localProfileImage} />
               </div>
               <div className="flex-1">
                 <p className="font-bold text-lg">{myProfile.display_name}</p>
@@ -327,7 +365,7 @@ export default function SocialPage() {
                     <Card key={f.id} className="border-amber-200 dark:border-amber-800">
                       <CardContent className="pt-4 pb-4">
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{p?.avatar_emoji ?? '😊'}</span>
+                          <UserAvatar profile={p} size="md" />
                           <div className="flex-1">
                             <p className="font-semibold text-sm">{p?.display_name ?? 'Usuário'}</p>
                             <p className="text-xs text-muted-foreground">{p?.email}</p>
@@ -368,7 +406,7 @@ export default function SocialPage() {
                   const p = getFriendProfile(f);
                   return (
                     <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                      <span className="text-2xl">{p?.avatar_emoji ?? '😊'}</span>
+                      <UserAvatar profile={p} size="sm" />
                       <div className="flex-1">
                         <p className="font-medium text-sm">{p?.display_name ?? 'Usuário'}</p>
                         <p className="text-xs text-muted-foreground">{p?.email}</p>
@@ -410,7 +448,7 @@ export default function SocialPage() {
                 <div className="space-y-2">
                   {searchResults.map(p => (
                     <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                      <span className="text-2xl">{p.avatar_emoji}</span>
+                      <UserAvatar profile={p} size="sm" />
                       <div className="flex-1">
                         <p className="font-medium text-sm">{p.display_name}</p>
                         <p className="text-xs text-muted-foreground">{p.email}</p>
@@ -438,7 +476,7 @@ export default function SocialPage() {
                 const p = getFriendProfile(f);
                 return (
                   <div key={f.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                    <span className="text-2xl">{p?.avatar_emoji ?? '😊'}</span>
+                    <UserAvatar profile={p} size="sm" />
                     <div className="flex-1">
                       <p className="font-medium text-sm">{p?.display_name ?? 'Usuário'}</p>
                       <p className="text-xs text-muted-foreground">{p?.email}</p>
@@ -473,7 +511,7 @@ export default function SocialPage() {
                     <Card key={f.id} className="hover:border-indigo-300 transition-colors">
                       <CardContent className="pt-4 pb-4">
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{p?.avatar_emoji ?? '😊'}</span>
+                          <UserAvatar profile={p} size="md" />
                           <div className="flex-1">
                             <p className="font-semibold text-sm">{p?.display_name}</p>
                             <p className="text-xs text-muted-foreground">{p?.email}</p>
@@ -681,7 +719,7 @@ export default function SocialPage() {
                               : 'border-border hover:border-indigo-300'
                           }`}
                         >
-                          <span className="text-xl">{p?.avatar_emoji}</span>
+                          <UserAvatar profile={p} size="sm" />
                           <span className="font-medium text-sm">{p?.display_name}</span>
                           {selectedFriendForDuo === p?.id && (
                             <Check className="h-4 w-4 text-indigo-500 ml-auto" />
