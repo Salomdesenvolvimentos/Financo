@@ -20,7 +20,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getCategories, createCategory, deleteCategory } from '@/services/categories.local';\nimport { upsertProfile } from '@/services/social';
+import { getCategories, createCategory, deleteCategory } from '@/services/categories.local';
+import { upsertProfile } from '@/services/social';
 import type { Category, CategoryFormData } from '@/types';
 import { 
   User, 
