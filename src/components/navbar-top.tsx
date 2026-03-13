@@ -159,7 +159,7 @@ export function NavbarTop({
                 </button>
               )}
               <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="Voltar ao Dashboard">
-                <Image src={darkMode ? logoBranco : logoPreto} alt="Financo" width={120} height={36} className="object-contain" />
+                <Image src={darkMode ? logoPreto : logoBranco} alt="Financo" width={120} height={36} className="object-contain" />
               </Link>
             </div>
 
