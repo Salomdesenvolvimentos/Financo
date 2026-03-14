@@ -50,6 +50,7 @@ import type {
 import { formatCurrency, formatDate, formatDateISO } from '@/lib/utils';
 import { isFaturaByDescription, analyzeFaturaMatch } from '@/lib/credit-card-utils';
 import { CategoryModal } from '@/components/category-modal';
+import { CategoryEditModal } from '@/components/category-edit-modal';
 import Link from 'next/link';
 import {
   Plus,
@@ -88,6 +89,7 @@ export default function TransactionsPage() {
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryEditModalOpen, setCategoryEditModalOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
   // Cartões de crédito vindos do Pluggy (Open Finance)
@@ -106,6 +108,7 @@ export default function TransactionsPage() {
     forma_pagamento: '',
     parcelado: false,
     total_parcelas: 1,
+    parcela_atual: 1,
     observacoes: '',
     is_fatura: false,
     modalidade_pagamento: undefined,
@@ -285,6 +288,7 @@ export default function TransactionsPage() {
       forma_pagamento: transaction.forma_pagamento || '',
       parcelado: transaction.parcelado,
       total_parcelas: transaction.total_parcelas,
+      parcela_atual: transaction.parcela_atual ?? 1,
       observacoes: transaction.observacoes || '',
       is_fatura: transaction.is_fatura || false,
       modalidade_pagamento: transaction.modalidade_pagamento || undefined,
@@ -746,13 +750,12 @@ export default function TransactionsPage() {
                   >
                     <Plus className="h-4 w-4" /> Nova Categoria
                   </button>
-                  <Link
-                    href="/dashboard/settings"
+                  <button
                     className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
-                    onClick={() => setCategoryDropdownOpen(false)}
+                    onClick={() => { setCategoryEditModalOpen(true); setCategoryDropdownOpen(false); }}
                   >
                     <Pencil className="h-4 w-4" /> Editar Categorias
-                  </Link>
+                  </button>
                 </div>
               </>
             )}
@@ -787,6 +790,7 @@ export default function TransactionsPage() {
                     <th className="text-left py-3 px-6 font-medium text-sm">Categoria</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Cartão</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Modalidade</th>
+                    <th className="text-left py-3 px-6 font-medium text-sm">Parcelas</th>
                     <th className="text-right py-3 px-6 font-medium text-sm">Valor</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Data</th>
                     <th className="text-left py-3 px-6 font-medium text-sm">Status</th>
@@ -985,6 +989,38 @@ export default function TransactionsPage() {
                               ? 'À Vista'
                               : '-'}
                           </span>
+                        )}
+                      </td>
+
+                      {/* Parcelas — clicável só se parcelado */}
+                      <td
+                        className="py-3 px-6 cursor-pointer"
+                        onClick={() => {
+                          if (transaction.parcelado) {
+                            setEditingCell({ id: transaction.id, field: 'parcela_atual' });
+                            setEditingValue(String(transaction.parcela_atual ?? 1));
+                          }
+                        }}
+                      >
+                        {editingCell?.id === transaction.id && editingCell.field === 'parcela_atual' ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number" min="1" max={transaction.total_parcelas}
+                              value={editingValue}
+                              onChange={e => setEditingValue(e.target.value)}
+                              onBlur={() => handleInlineSave(transaction.id, 'parcela_atual', Number(editingValue))}
+                              onKeyDown={e => handleCellKeyDown(e, transaction.id, 'parcela_atual', editingValue)}
+                              className="w-14 h-7 text-xs"
+                              autoFocus
+                            />
+                            <span className="text-xs text-muted-foreground">/{transaction.total_parcelas}</span>
+                          </div>
+                        ) : transaction.parcelado ? (
+                          <span className="text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded">
+                            {transaction.parcela_atual ?? 1}/{transaction.total_parcelas ?? 1}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
                         )}
                       </td>
 
@@ -1424,20 +1460,39 @@ export default function TransactionsPage() {
             )}
 
             {formData.parcelado && (
-              <div className="space-y-2">
-                <Label htmlFor="total_parcelas">Número de Parcelas</Label>
-                <Input
-                  id="total_parcelas"
-                  type="number"
-                  min="2"
-                  value={formData.total_parcelas}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      total_parcelas: Number(e.target.value),
-                    })
-                  }
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="total_parcelas">Total de Parcelas</Label>
+                  <Input
+                    id="total_parcelas"
+                    type="number"
+                    min="2"
+                    value={formData.total_parcelas ?? 1}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        total_parcelas: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="parcela_atual">Parcela Atual</Label>
+                  <Input
+                    id="parcela_atual"
+                    type="number"
+                    min="1"
+                    max={formData.total_parcelas ?? 1}
+                    value={(formData as any).parcela_atual ?? 1}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        parcela_atual: Number(e.target.value),
+                      } as any)
+                    }
+                    placeholder={`Ex: 1 de ${formData.total_parcelas ?? 1}`}
+                  />
+                </div>
               </div>
             )}
 
@@ -1489,6 +1544,15 @@ export default function TransactionsPage() {
           }
         }}
         defaultType={formData.tipo}
+      />
+
+      {/* Modal de Editar Categorias */}
+      <CategoryEditModal
+        isOpen={categoryEditModalOpen}
+        onClose={() => setCategoryEditModalOpen(false)}
+        onChanged={() => {
+          if (user) getCategories(user.id).then(r => { if (r.data) setCategories(r.data); });
+        }}
       />
     </div>
   );

@@ -44,6 +44,7 @@ import { getCategories } from '@/services/categories.local';
 import type { FixedExpense, FixedExpenseFormData, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { CategoryModal } from '@/components/category-modal';
+import { CategoryEditModal } from '@/components/category-edit-modal';
 import Link from 'next/link';
 import {
   Plus,
@@ -78,6 +79,7 @@ export default function FixedExpensesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [categoryEditModalOpen, setCategoryEditModalOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
   // Carregar dados
@@ -395,13 +397,12 @@ export default function FixedExpensesPage() {
                 >
                   <Plus className="h-4 w-4" /> Nova Categoria
                 </button>
-                <Link
-                  href="/dashboard/settings"
+                <button
                   className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2"
-                  onClick={() => setCategoryDropdownOpen(false)}
+                  onClick={() => { setCategoryEditModalOpen(true); setCategoryDropdownOpen(false); }}
                 >
                   <Pencil className="h-4 w-4" /> Editar Categorias
-                </Link>
+                </button>
               </div>
             </>
           )}
@@ -557,6 +558,14 @@ export default function FixedExpensesPage() {
               if (r.data) setCategories(r.data);
             });
           }
+        }}
+        defaultType="despesa"
+      />
+      <CategoryEditModal
+        isOpen={categoryEditModalOpen}
+        onClose={() => setCategoryEditModalOpen(false)}
+        onChanged={() => {
+          if (user) getCategories(user.id).then(r => { if (r.data) setCategories(r.data); });
         }}
         defaultType="despesa"
       />

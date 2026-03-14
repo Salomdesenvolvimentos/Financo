@@ -156,9 +156,10 @@ export async function getInvoice(
     const endISO = endDate.toISOString().split('T')[0];
 
     // 3. Buscar transações do cartão no período
-    const { data: txData, error: txError } = await supabase
+    //    Inclui: (a) cartao_id = cardId  OU  (b) forma_pagamento = card.nome E parcelado = true
+    const { data: txById, error: txError } = await supabase
       .from('transactions')
-      .select('id, descricao, valor, data_transacao, parcela_atual, total_parcelas, categoria:categories(nome, cor)')
+      .select('id, descricao, valor, data_transacao, parcela_atual, total_parcelas, parcelado, forma_pagamento, categoria:categories(nome, cor)')
       .eq('user_id', userId)
       .eq('cartao_id', cardId)
       .eq('tipo', 'despesa')
@@ -167,6 +168,24 @@ export async function getInvoice(
       .order('data_transacao');
 
     if (txError) throw txError;
+
+    // Transações sem cartao_id mas com forma_pagamento = nome do cartão E parcelado
+    const { data: txByName } = await supabase
+      .from('transactions')
+      .select('id, descricao, valor, data_transacao, parcela_atual, total_parcelas, parcelado, forma_pagamento, categoria:categories(nome, cor)')
+      .eq('user_id', userId)
+      .is('cartao_id', null)
+      .eq('forma_pagamento', card.nome)
+      .eq('tipo', 'despesa')
+      .eq('parcelado', true)
+      .gte('data_transacao', startISO)
+      .lte('data_transacao', endISO)
+      .order('data_transacao');
+
+    const allTx = [...(txById ?? []), ...(txByName ?? [])];
+    // Deduplica por id (caso cartao_id e forma_pagamento coincidam)
+    const seen = new Set<string>();
+    const txData = allTx.filter((t: any) => { if (seen.has(t.id)) return false; seen.add(t.id); return true; });
 
     const itens: InvoiceItem[] = (txData ?? []).map((t: any) => ({
       id: t.id,

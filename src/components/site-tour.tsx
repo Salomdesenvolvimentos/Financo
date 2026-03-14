@@ -179,12 +179,16 @@ function initCheckbox() {
 export function SiteTour() {
   const { user } = useAuth();
   const pathname = usePathname();
-  const [showButton, setShowButton] = useState(false);
+  // tourActive: true enquanto o driver.js está rodando
+  const [tourActive, setTourActive] = useState(false);
+  // driverRef: mantém referência ao driver para permitir skip externo
+  const driverRef = useState<{ destroy: () => void } | null>(null);
 
   const startTour = useCallback(async () => {
     if (typeof window === 'undefined') return;
 
     window.dispatchEvent(new CustomEvent('financo:tour-start'));
+    setTourActive(true);
 
     const { driver } = await import('driver.js');
 
@@ -205,12 +209,14 @@ export function SiteTour() {
         driverObj.moveNext();
       },
       onDestroyStarted: () => {
-        if (isNoShowChecked()) localStorage.setItem(TOUR_KEY, 'true');
+        localStorage.setItem(TOUR_KEY, 'true');
         window.dispatchEvent(new CustomEvent('financo:tour-end'));
         driverObj.destroy();
       },
       onDestroyed: () => {
-        setShowButton(true);
+        setTourActive(false);
+        // limpa referência
+        (driverRef as any)[1](null);
       },
       steps: steps.map((s) => ({
         element: s.element,
@@ -218,32 +224,44 @@ export function SiteTour() {
       })),
     });
 
+    // Guarda referência para poder destruir de fora
+    (driverRef as any)[1](driverObj);
     driverObj.drive();
-  }, []);
+  }, [driverRef]);
 
+  const skipTour = useCallback(() => {
+    const ref = (driverRef as any)[0];
+    if (ref) {
+      ref.destroy();
+    }
+    localStorage.setItem(TOUR_KEY, 'true');
+    setTourActive(false);
+  }, [driverRef]);
+
+  // Auto-start na primeira visita ao dashboard
   useEffect(() => {
     if (!user || pathname !== '/dashboard') return;
-
-    if (localStorage.getItem(TOUR_KEY) === 'true') {
-      setShowButton(true);
-      return;
-    }
-
+    if (localStorage.getItem(TOUR_KEY) === 'true') return;
     const t = setTimeout(() => startTour(), 900);
     return () => clearTimeout(t);
   }, [user, pathname, startTour]);
 
-  if (!showButton || pathname !== '/dashboard') return null;
+  // Só renderiza no dashboard
+  if (pathname !== '/dashboard' || !user) return null;
 
   return (
     <button
-      onClick={startTour}
-      title="Ver tutorial novamente"
-      className="fixed bottom-36 right-6 z-50 flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border shadow-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all"
-      aria-label="Ver tutorial do Financo"
+      onClick={tourActive ? skipTour : startTour}
+      title={tourActive ? 'Pular tutorial' : 'Ver tutorial novamente'}
+      className={`fixed bottom-36 right-6 z-50 flex items-center gap-2 px-3 py-2 rounded-full border shadow-lg text-sm font-medium transition-all ${
+        tourActive
+          ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+          : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted/80'
+      }`}
+      aria-label={tourActive ? 'Pular tutorial do Financo' : 'Ver tutorial do Financo'}
     >
       <BookOpen className="h-4 w-4" />
-      <span className="hidden sm:inline">Tutorial</span>
+      <span className="hidden sm:inline">{tourActive ? 'Pular Tutorial' : 'Tutorial'}</span>
     </button>
   );
 }

@@ -99,6 +99,7 @@ export interface TransactionFormData {
   forma_pagamento?: string;
   parcelado: boolean;
   total_parcelas?: number;
+  parcela_atual?: number;
   observacoes?: string;
   /** Pagamento de fatura de cartão — exclui do total de despesas */
   is_fatura?: boolean;
