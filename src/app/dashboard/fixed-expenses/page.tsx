@@ -443,7 +443,7 @@ export default function FixedExpensesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto -mx-6">
-              <table className="w-full">
+              <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
                     <th className="text-left py-3 px-6 font-medium text-sm">Descrição</th>
@@ -503,7 +503,7 @@ export default function FixedExpensesPage() {
           )}
           {/* Paginação */}
           {expenses.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-3 border-t">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 sm:px-6 py-3 border-t">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Linhas por página:</span>
                 <Select

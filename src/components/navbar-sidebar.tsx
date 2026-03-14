@@ -200,9 +200,12 @@ export function Sidebar({
 
   return (
     <>
-      {/* Overlay mobile */}
-      {isCollapsible && isOpen && (
-        <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      {/* Overlay — cobrindo tela quando sidebar está aberta */}
+      {isOpen && (
+        <div
+          className={`fixed inset-0 bg-black/20 z-40 ${!isCollapsible ? 'md:hidden' : ''}`}
+          onClick={onClose}
+        />
       )}
 
       {/* Sidebar */}
@@ -210,6 +213,8 @@ export function Sidebar({
         id="tour-sidebar"
         className={`fixed left-0 top-0 h-full sidebar-gradient border-r border-border z-50 transition-all duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${
+          !isCollapsible ? 'md:translate-x-0' : ''
         } w-64`}
       >
         {/* Header */}
@@ -217,8 +222,12 @@ export function Sidebar({
           <Link href="/dashboard" className="flex items-center gap-2.5 group" aria-label="Voltar ao Dashboard">
             <Image src={darkMode ? logoPreto : logoBranco} alt="Financo" width={110} height={32} className="object-contain" />
           </Link>
-          {isCollapsible && (
+          {isCollapsible ? (
             <button aria-label="Fechar menu" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          ) : (
+            <button aria-label="Fechar menu" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground md:hidden">
               <X className="h-4 w-4" />
             </button>
           )}

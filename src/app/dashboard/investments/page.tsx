@@ -631,7 +631,7 @@ export default function InvestmentsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto -mx-6">
-              <table className="w-full">
+              <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
                     <th className="py-3 px-6 w-10">

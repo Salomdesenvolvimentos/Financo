@@ -150,16 +150,15 @@ export function NavbarTop({
 
             {/* Left: menu toggle + logo */}
             <div className="flex items-center gap-3">
-              {isCollapsible && (
-                <button
-                  aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
-                  aria-expanded={isMenuOpen}
-                  onClick={onToggleMenu}
-                  className="p-2 rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
-                >
-                  {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                </button>
-              )}
+              {/* Botão hamburguer: sempre no mobile, só se colapsável no desktop */}
+              <button
+                aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+                aria-expanded={isMenuOpen}
+                onClick={onToggleMenu}
+                className={`p-2 rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground ${!isCollapsible ? 'md:hidden' : ''}`}
+              >
+                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
               <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="Voltar ao Dashboard">
                 <Image src={darkMode ? logoPreto : logoBranco} alt="Financo" width={120} height={36} className="object-contain" />
               </Link>
@@ -286,7 +285,7 @@ export function NavbarTop({
           </div>
 
           {/* Mobile Navigation */}
-          {isCollapsible && isMenuOpen && (
+          {isMenuOpen && (
             <nav className="md:hidden border-t border-border py-3" aria-label="Menu mobile">
               <div className="space-y-0.5">
                 {navEntries.map((entry) => {

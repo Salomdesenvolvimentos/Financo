@@ -412,7 +412,7 @@ export default function CreditCardsPage() {
               </div>
             ) : (
               <div className="overflow-x-auto -mx-6">
-                <table className="w-full">
+                <table className="w-full min-w-[520px]">
                   <thead>
                     <tr className="border-b bg-muted/40">
                       <th className="text-left py-2.5 px-6 font-medium text-sm">Descrição</th>

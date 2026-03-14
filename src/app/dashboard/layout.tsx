@@ -13,7 +13,7 @@ import { usePlan } from '@/hooks/use-plan';
 import { useFriendRequests } from '@/hooks/use-friend-requests';
 import { Sidebar } from '@/components/navbar-sidebar';
 import { NavbarTop } from '@/components/navbar-top';
-import { Loader2, Menu } from 'lucide-react';
+import { Loader2, Menu, X } from 'lucide-react';
 import { AIChatBot } from '@/components/ai-chatbot';
 import { SiteTour } from '@/components/site-tour';
 
@@ -82,7 +82,7 @@ export default function DashboardLayoutNew({
     return (
       <div className="min-h-screen flex">
         <Sidebar
-          isOpen={effectiveBehavior === 'fixed' ? true : mobileMenuOpen}
+          isOpen={mobileMenuOpen}
           onClose={closeMobileMenu}
           userName={user.nome || user.email || 'Usuário'}
           darkMode={darkMode}
@@ -91,12 +91,21 @@ export default function DashboardLayoutNew({
           friendRequestCount={friendRequestCount}
         />
 
-        {/* Botão toggle para sidebar colapsável */}
+        {/* Hamburger — visível só no mobile */}
+        <button
+          onClick={toggleMobileMenu}
+          aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+          className="fixed top-3 left-3 z-[60] md:hidden flex items-center justify-center w-9 h-9 bg-background dark:bg-card border border-border rounded-lg shadow-sm hover:bg-muted transition-colors"
+        >
+          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+
+        {/* Botão toggle para sidebar colapsável no desktop */}
         {effectiveBehavior === 'collapsible' && !mobileMenuOpen && (
           <button
             onClick={toggleMobileMenu}
             aria-label="Abrir menu"
-            className="fixed top-1/2 -translate-y-1/2 left-0 z-40 flex flex-col items-center justify-center gap-1 w-4 h-16 bg-muted hover:bg-accent border border-l-0 border-border rounded-r-lg shadow-sm transition-all duration-300 ease-in-out"
+            className="fixed top-1/2 -translate-y-1/2 left-0 z-40 hidden md:flex flex-col items-center justify-center gap-1 w-4 h-16 bg-muted hover:bg-accent border border-l-0 border-border rounded-r-lg shadow-sm transition-all duration-300 ease-in-out"
           >
             <span className="w-1 h-1 rounded-full bg-muted-foreground" />
             <span className="w-1 h-1 rounded-full bg-muted-foreground" />
@@ -105,10 +114,10 @@ export default function DashboardLayoutNew({
         )}
 
         {/* Main Content */}
-        <main className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${
-          effectiveBehavior === 'fixed' ? 'ml-64' : mobileMenuOpen ? 'ml-64' : 'ml-0'
+        <main className={`flex-1 min-w-0 transition-all duration-300 ease-in-out pt-14 md:pt-0 ${
+          effectiveBehavior === 'fixed' ? 'md:ml-64' : mobileMenuOpen ? 'md:ml-64' : 'ml-0'
         }`}>
-          <div className="container py-6">
+          <div className="container py-4 md:py-6">
             {children}
           </div>
         </main>
@@ -148,7 +157,7 @@ export default function DashboardLayoutNew({
 
       {/* Main Content — padding-top compensa a navbar fixa */}
       <main className={`flex-1 transition-all duration-300 ${navbarHidden ? 'pt-5' : 'pt-14'}`}>
-        <div className="container py-6">
+        <div className="container py-4 md:py-6">
           {children}
         </div>
       </main>
