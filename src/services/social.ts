@@ -124,13 +124,31 @@ export async function getFriendsAchievements(
   friendIds: string[]
 ): Promise<UserAchievement[]> {
   if (friendIds.length === 0) return [];
+
+  // user_achievements.user_id → auth.users, não public.profiles
+  // Por isso buscamos profiles separadamente para evitar 400
   const { data } = await supabase
     .from('user_achievements')
-    .select('*, achievement_definitions(*), profiles(*)')
+    .select('*, achievement_definitions(*)')
     .in('user_id', friendIds)
     .order('earned_at', { ascending: false })
     .limit(50);
-  return (data as UserAchievement[]) ?? [];
+
+  if (!data || data.length === 0) return [];
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_emoji, avatar_url')
+    .in('id', friendIds);
+
+  const profileMap: Record<string, any> = Object.fromEntries(
+    (profiles ?? []).map((p: any) => [p.id, p])
+  );
+
+  return (data as any[]).map(a => ({
+    ...a,
+    profiles: profileMap[a.user_id] ?? null,
+  })) as UserAchievement[];
 }
 
 export async function awardAchievement(
