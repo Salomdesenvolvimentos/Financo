@@ -56,7 +56,7 @@ export function CategoryEditModal({ isOpen, onClose, onChanged, defaultType = 'd
 
   const startEdit = (cat: Category) => {
     setEditingId(cat.id);
-    setEditRow({ nome: cat.nome, tipo: cat.tipo, cor: cat.cor });
+    setEditRow({ nome: cat.nome, tipo: cat.tipo, cor: cat.cor ?? '#6366F1' });
   };
 
   const cancelEdit = () => { setEditingId(null); };
