@@ -98,8 +98,10 @@ export const localDB = {
       localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(DEFAULT_CATEGORIES));
     }
     
-    // Sempre resetar transações para vazio para entrada manual
-    localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify([]));
+    // Inicializa transações apenas se ainda não existirem
+    if (!localStorage.getItem(KEYS.TRANSACTIONS)) {
+      localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify([]));
+    }
     
     if (!localStorage.getItem(KEYS.INSIGHTS)) {
       localStorage.setItem(KEYS.INSIGHTS, JSON.stringify([]));

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const ADMIN_EMAIL = 'salomdesenvolvimentos@hotmail.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'salomdesenvolvimentos@hotmail.com';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;

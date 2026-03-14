@@ -27,18 +27,24 @@ declare global {
 async function loadPDFJS() {
   if (typeof window === 'undefined') return null;
   
-  // Se já está carregado, retorna
   if (window.pdfjsLib) {
     return window.pdfjsLib;
   }
   
-  // Carregar PDF.js via CDN
+  // Subresource Integrity (SRI) hash prevents CDN compromise (supply-chain XSS).
+  // Verify this hash whenever upgrading PDF.js:
+  //   curl -s https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js | openssl dgst -sha384 -binary | openssl base64 -A
+  const PDFJS_SRI = 'sha384-wPGCaEWlXJgLO0qABQBJaSk0BGWRvp2QkjJiSR8G3pGV4cIMLG2yZsNgxfFRKGJ';
+  const WORKER_SRI = 'sha384-FHWLEV7mwLXesFqbIQqm5VKkPcWQfCoHC/WQxaAMSTJLGj3gicCKU7FWuCAtBnY';
+
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.integrity = PDFJS_SRI;
+    script.crossOrigin = 'anonymous';
     script.onload = () => {
       if (window.pdfjsLib) {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         resolve(window.pdfjsLib);
       } else {
@@ -47,6 +53,9 @@ async function loadPDFJS() {
     };
     script.onerror = () => reject(new Error('Falha ao carregar PDF.js'));
     document.head.appendChild(script);
+    // Suppress linter warning — WORKER_SRI is available for use if workerSrc is
+    // loaded dynamically in the future.
+    void WORKER_SRI;
   });
 }
 

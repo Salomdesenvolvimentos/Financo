@@ -36,10 +36,13 @@ export async function upsertProfile(
 }
 
 export async function searchProfilesByEmail(query: string): Promise<Profile[]> {
+  // Require at least 3 characters to prevent full email enumeration.
+  if (!query || query.trim().length < 3) return [];
+
   const { data } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_emoji, avatar_url, bio, total_points, email, created_at, updated_at')
-    .ilike('email', `%${query}%`)
+    .select('id, display_name, avatar_emoji, avatar_url, bio, total_points, created_at, updated_at')
+    .ilike('email', `%${query.trim()}%`)
     .limit(10);
   return (data as Profile[]) ?? [];
 }
@@ -155,23 +158,9 @@ export async function awardAchievement(
   userId: string,
   achievementId: string
 ): Promise<void> {
-  // Tenta inserir; se já existe, ignora (UNIQUE constraint)
-  await supabase
-    .from('user_achievements')
-    .upsert({ user_id: userId, achievement_id: achievementId }, { onConflict: 'user_id,achievement_id' });
-
-  // Atualiza pontos do perfil
-  const def = await supabase
-    .from('achievement_definitions')
-    .select('points')
-    .eq('id', achievementId)
-    .single();
-  if (def.data) {
-    await supabase.rpc('increment_profile_points', {
-      uid: userId,
-      pts: (def.data as AchievementDefinition).points,
-    }).then(() => {});
-  }
+  // All validation and point increments are handled server-side by the
+  // SECURITY DEFINER function, preventing self-award fraud.
+  await supabase.rpc('award_achievement', { p_achievement_id: achievementId });
 }
 
 // ---- DESAFIOS EM DUPLA ----------------------------------------

@@ -161,19 +161,26 @@ export async function getFixedIncomeReceivingSoon(userId: string, days: number =
 
     const currentDay = today.getDate();
     const targetDay = targetDate.getDate();
+    const crossesMonth = targetDay < currentDay;
 
+    // Fetch all active incomes and filter in-memory to correctly handle
+    // windows that cross a month boundary.
     const { data, error } = await supabase
       .from('fixed_income')
       .select('*')
       .eq('user_id', userId)
       .eq('ativo', true)
-      .gte('dia_recebimento', currentDay)
-      .lte('dia_recebimento', targetDay)
       .order('dia_recebimento', { ascending: true });
 
     if (error) throw error;
 
-    return { data: data as FixedIncome[], error: null };
+    const filtered = (data as FixedIncome[]).filter(i =>
+      crossesMonth
+        ? i.dia_recebimento >= currentDay || i.dia_recebimento <= targetDay
+        : i.dia_recebimento >= currentDay && i.dia_recebimento <= targetDay
+    );
+
+    return { data: filtered, error: null };
   } catch (error: any) {
     console.error('Erro ao buscar rendas a receber em breve:', error);
     return { data: null, error: error.message };

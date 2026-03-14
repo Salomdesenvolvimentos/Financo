@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
-import { getPluggyApiKey, pluggyConfigured } from '../_utils';
+import { NextRequest, NextResponse } from 'next/server';
+import { getPluggyApiKey, pluggyConfigured, requireAuth } from '../_utils';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const userId = await requireAuth(req);
+  if (!userId) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+
   if (!pluggyConfigured()) {
     return NextResponse.json(
       { error: 'Pluggy não configurado. Adicione PLUGGY_CLIENT_ID e PLUGGY_CLIENT_SECRET no .env.local' },

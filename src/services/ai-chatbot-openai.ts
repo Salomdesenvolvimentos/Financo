@@ -8,6 +8,7 @@
 import { getFinancialSummary, getCategoryExpenses } from '@/services/analytics.local';
 import type { CategorySummary, Transaction } from '@/types';
 import { getTransactions } from '@/services/transactions.local';
+import { supabase } from '@/lib/supabase';
 
 // ──────────────────────────────────────────
 // Tipos (espelhados do serviço simples)
@@ -166,7 +167,10 @@ export class AIChatBotService {
   /** Verifica se a OPENAI_API_KEY está configurada no servidor */
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
-      const res = await fetch('/api/ai');
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch('/api/ai', { headers });
       const data = await res.json();
       this._configured = data.configured === true;
       return this._configured
@@ -313,9 +317,13 @@ export class AIChatBotService {
     }));
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           messages: last8,
           systemPrompt: buildSystemPrompt(context),

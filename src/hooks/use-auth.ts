@@ -8,16 +8,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { localDB } from '@/lib/local-storage';
+import { isLocalMode } from '@/lib/config';
 import type { User } from '@/types';
-
-const isLocalMode = () => {
-  if (typeof window === 'undefined') return false;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  console.log('🔧 NEXT_PUBLIC_SUPABASE_URL:', url);
-  const isLocal = url?.includes('localhost:54321') || false;
-  console.log('🏠 Modo local ativo?', isLocal);
-  return isLocal;
-};
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -27,10 +19,7 @@ export function useAuth() {
     if (typeof window === 'undefined') return;
 
     if (isLocalMode()) {
-      // Modo local: usar localStorage
-      console.log('🔍 Verificando usuário no localStorage...');
       const localUser = localDB.getUser();
-      console.log('👤 Usuário encontrado:', localUser);
       setUser(localUser);
       setLoading(false);
     } else {

@@ -176,7 +176,10 @@ export async function getFixedExpensesDueSoon(userId: string, days: number = 5):
 
     const currentDay = today.getDate();
     const targetDay = targetDate.getDate();
+    const crossesMonth = targetDay < currentDay;
 
+    // Fetch all active expenses and filter in-memory to correctly handle
+    // windows that cross a month boundary (e.g., day 28 → day 3 next month).
     const { data, error } = await supabase
       .from('fixed_expenses')
       .select(`
@@ -185,13 +188,17 @@ export async function getFixedExpensesDueSoon(userId: string, days: number = 5):
       `)
       .eq('user_id', userId)
       .eq('ativo', true)
-      .gte('dia_vencimento', currentDay)
-      .lte('dia_vencimento', targetDay)
       .order('dia_vencimento', { ascending: true });
 
     if (error) throw error;
 
-    return { data: data as FixedExpense[], error: null };
+    const filtered = (data as FixedExpense[]).filter(e =>
+      crossesMonth
+        ? e.dia_vencimento >= currentDay || e.dia_vencimento <= targetDay
+        : e.dia_vencimento >= currentDay && e.dia_vencimento <= targetDay
+    );
+
+    return { data: filtered, error: null };
   } catch (error: any) {
     console.error('Erro ao buscar gastos vencendo em breve:', error);
     return { data: null, error: error.message };

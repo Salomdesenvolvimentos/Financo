@@ -13,9 +13,11 @@ interface MenuSettings {
 export function useMenuSettings() {
   const [settings, setSettings] = useState<MenuSettings>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('menu-settings');
-      if (saved) {
-        return JSON.parse(saved);
+      try {
+        const saved = localStorage.getItem('menu-settings');
+        if (saved) return JSON.parse(saved) as MenuSettings;
+      } catch {
+        // Malformed JSON in localStorage — fall through to default
       }
     }
     return {

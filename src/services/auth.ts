@@ -7,14 +7,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { localDB, DEFAULT_USER } from '@/lib/local-storage';
-
-// Verifica se está usando modo local (sem Supabase)
-const isLocalMode = () => {
-  if (typeof window === 'undefined') return false;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  console.log('🔧 Verificando modo (auth):', url);
-  return url?.includes('localhost:54321') || false;
-};
+import { isLocalMode } from '@/lib/config';
 
 /**
  * Realiza login com email e senha
@@ -23,10 +16,8 @@ export async function signIn(email: string, password: string) {
   try {
     // Modo local: aceita qualquer email/senha e usa usuário de teste
     if (isLocalMode()) {
-      console.log('🔐 Login em modo local');
       localDB.init();
       localDB.setUser(DEFAULT_USER);
-      console.log('✅ Usuário salvo no localStorage:', DEFAULT_USER);
       return { 
         data: { 
           user: DEFAULT_USER,
@@ -72,9 +63,9 @@ export async function signUp(email: string, password: string, nome: string) {
       email,
       password,
       options: {
-        data: {
-          nome,
-        },
+        // Pass both keys so both DB triggers (handle_new_user reads 'name',
+        // handle_new_user_profile reads 'nome') receive the value correctly.
+        data: { name: nome, nome },
       },
     });
 
