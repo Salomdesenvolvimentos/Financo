@@ -4,6 +4,7 @@
 
 import { supabase } from '@/lib/supabase';
 import type { WishlistGoal, WishlistGoalFormData } from '@/types';
+import { apiUrl } from '@/lib/api-url';
 
 export async function getWishlistGoals(userId: string): Promise<WishlistGoal[]> {
   const { data } = await supabase
@@ -107,7 +108,7 @@ Seja conciso (máx 150 palavras).
 
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch('/api/ai', {
+    const res = await fetch(apiUrl('/api/ai'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

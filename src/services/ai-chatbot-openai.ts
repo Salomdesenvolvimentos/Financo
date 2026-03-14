@@ -9,6 +9,7 @@ import { getFinancialSummary, getCategoryExpenses } from '@/services/analytics.l
 import type { CategorySummary, Transaction } from '@/types';
 import { getTransactions } from '@/services/transactions.local';
 import { supabase } from '@/lib/supabase';
+import { apiUrl } from '@/lib/api-url';
 
 // ──────────────────────────────────────────
 // Tipos (espelhados do serviço simples)
@@ -170,7 +171,7 @@ export class AIChatBotService {
       const { data: { session } } = await supabase.auth.getSession();
       const headers: Record<string, string> = {};
       if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-      const res = await fetch('/api/ai', { headers });
+      const res = await fetch(apiUrl('/api/ai'), { headers });
       const data = await res.json();
       this._configured = data.configured === true;
       return this._configured
@@ -318,7 +319,7 @@ export class AIChatBotService {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/ai', {
+      const res = await fetch(apiUrl('/api/ai'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -38,6 +38,7 @@ import { parsePDF, validateTransactions } from '@/services/pdf-parser';
 import { suggestCategory, saveLearnedRule } from '@/services/categorization';
 import type { Category } from '@/types';
 import { formatDateISO } from '@/lib/utils';
+import { apiUrl } from '@/lib/api-url';
 import * as XLSX from 'xlsx';
 
 export default function ImportPage() {
@@ -83,7 +84,7 @@ export default function ImportPage() {
   const handleLoadAllItems = async () => {
     setLoadingItems(true);
     try {
-      const res = await fetch('/api/pluggy/item');
+      const res = await fetch(apiUrl('/api/pluggy/item'));
       const data = await res.json();
       setAllItems(data.results ?? data.items ?? []);
     } catch {
@@ -96,7 +97,7 @@ export default function ImportPage() {
   const handleDeleteItem = async (itemId: string) => {
     setDeletingItemId(itemId);
     try {
-      await fetch(`/api/pluggy/item?itemId=${itemId}`, { method: 'DELETE' });
+      await fetch(apiUrl(`/api/pluggy/item?itemId=${itemId}`), { method: 'DELETE' });
       setAllItems((prev) => prev.filter((i) => i.id !== itemId));
       // Limpar conexão local se for a ativa
       if (connectedItemId === itemId) {
@@ -121,7 +122,7 @@ export default function ImportPage() {
     let deleted = 0;
     for (const item of allItems) {
       try {
-        await fetch(`/api/pluggy/item?itemId=${item.id}`, { method: 'DELETE' });
+        await fetch(apiUrl(`/api/pluggy/item?itemId=${item.id}`), { method: 'DELETE' });
         deleted++;
       } catch {}
     }
@@ -152,7 +153,7 @@ export default function ImportPage() {
   const handlePluggyConnect = async () => {
     setPluggyStep('connecting');
     try {
-      const res = await fetch('/api/pluggy/token', { method: 'POST' });
+      const res = await fetch(apiUrl('/api/pluggy/token'), { method: 'POST' });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setPluggyToken(data.accessToken);
@@ -164,7 +165,7 @@ export default function ImportPage() {
   };
 
   const fetchAccounts = useCallback(async (itemId: string) => {
-    const accRes = await fetch(`/api/pluggy/accounts?itemId=${itemId}`);
+    const accRes = await fetch(apiUrl(`/api/pluggy/accounts?itemId=${itemId}`));
     const accData = await accRes.json();
     const accounts = accData.results ?? accData.accounts ?? [];
     setPluggyAccounts(accounts);
@@ -177,7 +178,7 @@ export default function ImportPage() {
     const MAX = 20; // 60 seconds max (20 * 3s)
     for (let i = 0; i < MAX; i++) {
       try {
-        const res = await fetch(`/api/pluggy/item?itemId=${itemId}`);
+        const res = await fetch(apiUrl(`/api/pluggy/item?itemId=${itemId}`));
         const data = await res.json();
         const status: string = data.status ?? '';
         if (status === 'UPDATED' || status === 'PARTIAL_SUCCESS') {
@@ -234,7 +235,7 @@ export default function ImportPage() {
     if (!connectedItemId) return;
     setDisconnecting(true);
     try {
-      await fetch(`/api/pluggy/item?itemId=${connectedItemId}`, { method: 'DELETE' });
+      await fetch(apiUrl(`/api/pluggy/item?itemId=${connectedItemId}`), { method: 'DELETE' });
     } catch {}
     localStorage.removeItem('pluggy_item_id');
     localStorage.removeItem('pluggy_item_name');
@@ -280,7 +281,7 @@ export default function ImportPage() {
         const account = pluggyAccounts.find((a) => a.id === accountId);
         setPluggyProgress(`Importando ${account?.name ?? 'conta'}...`);
         const params = new URLSearchParams({ accountId, from: pluggyDateFrom, to: pluggyDateTo });
-        const res = await fetch(`/api/pluggy/transactions?${params}`);
+        const res = await fetch(apiUrl(`/api/pluggy/transactions?${params}`));
         const data = await res.json();
         const txs: any[] = data.results ?? data.transactions ?? [];
         for (const tx of txs) {
@@ -346,7 +347,7 @@ export default function ImportPage() {
       if (connectedItemId) {
         setPluggyProgress('Buscando investimentos...');
         try {
-          const invRes = await fetch(`/api/pluggy/investments?itemId=${connectedItemId}`);
+          const invRes = await fetch(apiUrl(`/api/pluggy/investments?itemId=${connectedItemId}`));
           const invData = await invRes.json();
           const invs: any[] = invData.results ?? invData.investments ?? [];
           for (const inv of invs) {

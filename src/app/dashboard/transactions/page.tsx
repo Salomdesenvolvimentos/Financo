@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { apiUrl } from '@/lib/api-url';
 import {
   Card,
   CardContent,
@@ -154,7 +155,7 @@ export default function TransactionsPage() {
     if (!itemId) return;
     (async () => {
       try {
-        const res = await fetch(`/api/pluggy/accounts?itemId=${itemId}`);
+        const res = await fetch(apiUrl(`/api/pluggy/accounts?itemId=${itemId}`));
         const data = await res.json();
         const accounts: any[] = data.results ?? data.accounts ?? [];
         setPluggyCreditCards(accounts.filter((a: any) => a.type === 'CREDIT'));
