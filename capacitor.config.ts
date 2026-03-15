@@ -1,12 +1,21 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
+// URL do seu app em produção (Vercel).
+// O app Android carrega diretamente essa URL no WebView.
+// Troque pelo endereço real antes de gerar o APK.
+const PRODUCTION_URL = process.env.CAPACITOR_SERVER_URL ?? 'https://SEU-APP.vercel.app';
+
 const config: CapacitorConfig = {
   appId: 'com.financo.app',
   appName: 'Financo',
-  // 'out' é o diretório gerado pelo next build com output: 'export'
-  webDir: 'out',
+  webDir: 'out', // Usado apenas se não houver server.url
+  server: {
+    // Aponta para o Vercel — o app Android carrega o site de produção.
+    // Isso elimina a necessidade de build estático e mantém sempre atualizado.
+    url: PRODUCTION_URL,
+    cleartext: false,
+  },
   android: {
-    // Permite que WebView acesse a URL da API de produção via HTTPS
     allowMixedContent: false,
   },
   plugins: {

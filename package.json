@@ -10,10 +10,10 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "vercel-build": "next build --no-lint",
-    "build:mobile": "cross-env CAPACITOR_BUILD=true next build",
+    "build:mobile": "node scripts/build-mobile.js",
     "cap:sync": "npx cap sync android",
     "cap:android": "npx cap open android",
-    "cap:build": "npm run build:mobile && npx cap sync android"
+    "cap:build": "npm run cap:sync && npx cap open android"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
