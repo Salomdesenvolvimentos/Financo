@@ -30,7 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, FileSpreadsheet, Plus, Building2, Unlink, RefreshCw, TrendingUp, ChevronDown, ChevronUp, QrCode, ScanLine, Crown, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { createTransaction } from '@/services/transactions.local';
+import { createTransaction, getTransactions } from '@/services/transactions.local';
 import { upsertInvestment } from '@/services/investments.local';
 import type { InvestmentType } from '@/types';
 import { getCategories } from '@/services/categories.local';
@@ -508,7 +508,33 @@ export default function ImportPage() {
         }
       }
 
+      // ── Deduplicação: buscar transações existentes no período dos dados ──────
+      const allDates = parsedData
+        .map((r: any) => r['data'] || r['date'] || '')
+        .filter(Boolean)
+        .map((d: string) => {
+          if (d.match(/^\d{4}-\d{2}-\d{2}$/)) return d;
+          if (d.includes('/')) {
+            const [dd, mm, yy] = d.split('/');
+            return `${yy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+          }
+          return '';
+        })
+        .filter(Boolean)
+        .sort();
+      const dateMin = allDates[0] ?? '';
+      const dateMax = allDates[allDates.length - 1] ?? '';
+      const existingSet = new Set<string>();
+      if (dateMin && dateMax) {
+        const { data: existingTxs } = await getTransactions({ data_inicio: dateMin, data_fim: dateMax });
+        for (const tx of existingTxs ?? []) {
+          existingSet.add(`${tx.data_transacao}|${Math.round(tx.valor * 100)}|${tx.descricao.toLowerCase().slice(0, 40)}`);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       let imported = 0;
+      let skipped = 0;
       let receitaCount = 0;
       let despesaCount = 0;
       for (const row of parsedData) {
@@ -556,16 +582,18 @@ export default function ImportPage() {
           console.log('ðŸ“… Data convertida:', date, 'â†’', dateISO);
         }
 
+
+        // Verificar duplicata antes de inserir
+        const fingerprint = `${dateISO}|${Math.round(numericAmount * 100)}|${description.toLowerCase().slice(0, 40)}`;
+        if (existingSet.has(fingerprint)) {
+          skipped++;
+          continue;
+        }
+        existingSet.add(fingerprint); // prevenir duplicatas dentro do mesmo arquivo
+
         // Sugerir categoria com IA
         const suggestedCategory = await suggestCategory(user.id, description, tipo, categories);
         const categoryId = suggestedCategory || findCategory(description);
-
-        console.log('ðŸ’¾ Salvando transaÃ§Ã£o:', {
-          descricao: description.substring(0, 30) + '...',
-          data: dateISO,
-          valor: numericAmount,
-          tipo
-        });
 
         await createTransaction({
           descricao: description.substring(0, 100),
@@ -596,10 +624,10 @@ export default function ImportPage() {
         if (tipo === 'despesa') despesaCount++;
       }
 
-      console.log('ðŸ”¢ Resumo importaÃ§Ã£o PDF:', { imported, receitaCount, despesaCount });
+      const skippedMsg = skipped > 0 ? ` (${skipped} duplicata${skipped > 1 ? 's' : ''} ignorada${skipped > 1 ? 's' : ''})` : '';
       toast({
-        title: `${imported} transaÃ§Ãµes importadas!`,
-        description: 'O sistema aprendeu novos padrÃµes de categorizaÃ§Ã£o',
+        title: `${imported} transações importadas!`,
+        description: `O sistema aprendeu novos padrões de categorização${skippedMsg}`,
       });
 
       // navegar e pedir para a pÃ¡gina de transaÃ§Ãµes limpar filtros

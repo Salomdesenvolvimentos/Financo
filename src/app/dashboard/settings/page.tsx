@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getCategories, createCategory, deleteCategory } from '@/services/categories.local';
-import { upsertProfile } from '@/services/social';
+import { upsertProfile, getMyProfile } from '@/services/social';
 import type { Category, CategoryFormData } from '@/types';
 import { 
   User, 
@@ -77,7 +77,17 @@ export default function SettingsPageNew() {
   useEffect(() => {
     if (user?.id) {
       const savedImage = localStorage.getItem(`profile-image-${user.id}`);
-      if (savedImage) setProfileImage(savedImage);
+      if (savedImage) {
+        setProfileImage(savedImage);
+      } else {
+        // Fallback: recuperar do Supabase se localStorage foi limpo (ex: Android)
+        getMyProfile(user.id).then(profile => {
+          if (profile?.avatar_url) {
+            localStorage.setItem(`profile-image-${user.id}`, profile.avatar_url);
+            setProfileImage(profile.avatar_url);
+          }
+        }).catch(() => {});
+      }
 
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme === 'dark') setDarkMode(true);
@@ -109,31 +119,50 @@ export default function SettingsPageNew() {
 
     setUploadingImage(true);
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
-      const result = e.target?.result as string;
-      localStorage.setItem(`profile-image-${user.id}`, result);
-      setProfileImage(result);
+      const originalDataUrl = e.target?.result as string;
 
-      // Salvar no Supabase para que amigos possam ver a foto
-      upsertProfile(user.id, { avatar_url: result }).catch(() => {
-        // falha silenciosa — a foto ainda fica salva localmente
-      });
+      // Comprimir/redimensionar via canvas antes de salvar (evita estouro de localStorage e falhas no Android)
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX_PX = 400;
+        let { width, height } = img;
+        if (width > MAX_PX || height > MAX_PX) {
+          const ratio = Math.min(MAX_PX / width, MAX_PX / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.75);
 
-      setUploadingImage(false);
-      
-      toast({
-        title: "Foto atualizada",
-        description: "Sua foto de perfil foi atualizada com sucesso.",
-      });
+        localStorage.setItem(`profile-image-${user.id}`, compressed);
+        setProfileImage(compressed);
+        // Salvar no Supabase como backup — recuperado automaticamente se cache for limpo
+        upsertProfile(user.id, { avatar_url: compressed }).catch(() => {});
+        setUploadingImage(false);
+        toast({ title: 'Foto atualizada', description: 'Sua foto de perfil foi atualizada com sucesso.' });
+      };
+      img.onerror = () => {
+        // Fallback: salvar sem compressão
+        localStorage.setItem(`profile-image-${user.id}`, originalDataUrl);
+        setProfileImage(originalDataUrl);
+        upsertProfile(user.id, { avatar_url: originalDataUrl }).catch(() => {});
+        setUploadingImage(false);
+        toast({ title: 'Foto atualizada', description: 'Sua foto de perfil foi atualizada com sucesso.' });
+      };
+      img.src = originalDataUrl;
     };
 
     reader.onerror = () => {
       setUploadingImage(false);
       toast({
-        title: "Erro ao fazer upload",
-        description: "Não foi possível processar a imagem.",
-        variant: "destructive",
+        title: 'Erro ao fazer upload',
+        description: 'Não foi possível processar a imagem.',
+        variant: 'destructive',
       });
     };
 
