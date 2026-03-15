@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePlan } from '@/hooks/use-plan';
 import { useAuth } from '@/hooks/use-auth';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { generatePixPayload } from '@/lib/pix';
+import { apiUrl } from '@/lib/api-url';
 import {
   Crown,
   Check,
@@ -30,7 +31,6 @@ import {
 const PIX_KEY = 'jose_adelson@outlook.com';
 const PIX_NAME = 'Jose Adelson';
 const PIX_CITY = 'Sao Paulo';
-const PIX_AMOUNT = 29.90;
 const WHATSAPP_NUMBER = '5511915001508';
 
 const FREE_FEATURES = [
@@ -65,11 +65,21 @@ export default function SubscriptionPage() {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [pixAmount, setPixAmount] = useState(29.90);
 
-  const pixPayload = generatePixPayload(PIX_KEY, PIX_NAME, PIX_CITY, PIX_AMOUNT);
+  // Busca o preço atual configurado pelo admin
+  useEffect(() => {
+    fetch(apiUrl('/api/admin/config?key=premium_price'))
+      .then(r => r.json())
+      .then(d => { if (d.value) setPixAmount(parseFloat(d.value) || 29.90); })
+      .catch(() => {});
+  }, []);
+
+  const pixPayload = generatePixPayload(PIX_KEY, PIX_NAME, PIX_CITY, pixAmount);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixPayload)}`;
+  const priceLabel = pixAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const whatsappMsg = encodeURIComponent(
-    `Olá! Realizei o pagamento do Financo Premium (R$29,90/mês). Meu e-mail: ${user?.email ?? ''}`
+    `Olá! Realizei o pagamento do Financo Premium (R$${priceLabel}/mês). Meu e-mail: ${user?.email ?? ''}`
   );
 
   const handleCopy = async () => {
@@ -166,7 +176,7 @@ export default function SubscriptionPage() {
               <div>
                 <CardTitle className="text-xl">Premium</CardTitle>
                 <p className="text-2xl font-bold mt-0.5">
-                  R$29,90
+                  R${priceLabel}
                   <span className="text-sm font-normal text-muted-foreground"> / mês</span>
                 </p>
               </div>
@@ -192,7 +202,7 @@ export default function SubscriptionPage() {
               Assinar Premium via PIX
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Pague R$29,90/mês por PIX e envie o comprovante via WhatsApp. Ativaremos seu Premium em até 1 hora.
+              Pague R${priceLabel}/mês por PIX e envie o comprovante via WhatsApp. Ativaremos seu Premium em até 1 hora.
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -200,7 +210,7 @@ export default function SubscriptionPage() {
             <ol className="space-y-3 text-sm">
               {[
                 'Escaneie o QR Code ou copie a chave PIX abaixo.',
-                'Realize o pagamento de R$29,90.',
+                `Realize o pagamento de R$${priceLabel}.`,
                 'Envie o comprovante via WhatsApp para confirmar.',
                 'Seu plano Premium será ativado em até 1 hora.',
               ].map((step, i) => (

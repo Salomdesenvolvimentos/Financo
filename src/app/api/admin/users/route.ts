@@ -15,6 +15,14 @@ function getServiceClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+/** Calcula premium_until a partir de dias (0 = permanente = null) */
+function calcPremiumUntil(days: number | null | undefined): string | null {
+  if (!days || days <= 0) return null; // null = sem expiração (permanente)
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
 async function verifyAdmin(req: NextRequest): Promise<{ ok: boolean; error?: string }> {
   const authHeader = req.headers.get('authorization') ?? '';
   const token = authHeader.replace('Bearer ', '').trim();
@@ -47,17 +55,25 @@ export async function GET(req: NextRequest) {
   // Buscar dados de plano de public.users
   const { data: planRows } = await supabase
     .from('users')
-    .select('id, name, plan');
+    .select('id, name, plan, premium_until');
 
   const planMap = new Map((planRows ?? []).map((u: any) => [u.id, u]));
 
+  const now = new Date();
   const users = authData.users.map((u) => {
     const pub = planMap.get(u.id) as any;
+    let plan: 'free' | 'premium' = (pub?.plan ?? 'free') as 'free' | 'premium';
+    const premiumUntil: string | null = pub?.premium_until ?? null;
+    // Auto-expirar: se premium_until passou, tratar como free
+    if (plan === 'premium' && premiumUntil && new Date(premiumUntil) < now) {
+      plan = 'free';
+    }
     return {
       id: u.id,
       email: u.email ?? '',
       name: pub?.name ?? (u.user_metadata?.name as string) ?? null,
-      plan: (pub?.plan ?? 'free') as 'free' | 'premium',
+      plan,
+      premium_until: premiumUntil,
       created_at: u.created_at,
     };
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -70,26 +86,37 @@ export async function PATCH(req: NextRequest) {
   const { ok, error } = await verifyAdmin(req);
   if (!ok) return NextResponse.json({ error }, { status: 403 });
 
-  let body: { userId: string; plan: 'free' | 'premium' };
+  let body: { userId: string; plan: 'free' | 'premium'; days?: number | null };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
   }
 
-  const { userId, plan } = body;
+  const { userId, plan, days } = body;
   if (!userId || !['free', 'premium'].includes(plan)) {
     return NextResponse.json({ error: 'Campos inválidos' }, { status: 400 });
   }
 
   const supabase = getServiceClient();
 
-  const { error: dbError } = await supabase
-    .from('users')
-    .update({ plan })
-    .eq('id', userId);
+  // Buscar email/nome do usuário para upsert (necessário pois a linha pode não existir)
+  const { data: authUserData } = await supabase.auth.admin.getUserById(userId);
+  const email = authUserData?.user?.email ?? '';
+  const nome: string =
+    (authUserData?.user?.user_metadata?.name as string) ||
+    email.split('@')[0] ||
+    'Usuário';
+
+  const premium_until = plan === 'premium' ? calcPremiumUntil(days) : null;
+
+  // Upsert — cria a linha se não existir, atualiza se existir
+  const { error: dbError } = await supabase.from('users').upsert(
+    { id: userId, email, nome, plan, premium_until },
+    { onConflict: 'id' },
+  );
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, premium_until });
 }
