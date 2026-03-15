@@ -1,7 +1,6 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { getPluggyApiKey, pluggyConfigured, requireAuth } from '../_utils';
-
-export async function GET(req: NextRequest) {
+import { getPluggyApiKey, pluggyConfigured, requireAuth } from '../_utils'; {
   const userId = await requireAuth(req);
   if (!userId) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

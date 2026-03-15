@@ -3,6 +3,7 @@
 // Proxy server-side para OpenAI – a chave nunca é exposta ao cliente
 // ============================================
 
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/server-auth';
 
