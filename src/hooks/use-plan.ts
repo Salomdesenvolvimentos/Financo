@@ -28,14 +28,22 @@ export function usePlan() {
 
     async function fetchPlan() {
       try {
-        // Busca o plano diretamente da tabela users (atualizado pelo webhook Stripe)
+        // Busca o plano diretamente da tabela users (atualizado pelo webhook Stripe ou Admin)
         const { data } = await supabase
           .from('users')
-          .select('plan')
+          .select('plan, premium_until')
           .eq('id', user!.id)
           .single();
 
-        const fetchedPlan: Plan = (data?.plan as Plan) || 'free';
+        let fetchedPlan: Plan = (data?.plan as Plan) || 'free';
+
+        // Respeitar expiração: se premium_until passou, tratar como free
+        if (fetchedPlan === 'premium' && data?.premium_until) {
+          if (new Date(data.premium_until) < new Date()) {
+            fetchedPlan = 'free';
+          }
+        }
+
         setPlan(fetchedPlan);
         if (typeof window !== 'undefined') {
           localStorage.setItem(CACHE_KEY, fetchedPlan);

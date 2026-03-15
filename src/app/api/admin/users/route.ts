@@ -53,9 +53,10 @@ export async function GET(req: NextRequest) {
   if (authError) return NextResponse.json({ error: authError.message }, { status: 500 });
 
   // Buscar dados de plano de public.users
+  // Usa select('*') para tolerar variações de schema (nome vs name, premium_until opcional)
   const { data: planRows } = await supabase
     .from('users')
-    .select('id, name, plan, premium_until');
+    .select('*');
 
   const planMap = new Map((planRows ?? []).map((u: any) => [u.id, u]));
 
@@ -64,14 +65,15 @@ export async function GET(req: NextRequest) {
     const pub = planMap.get(u.id) as any;
     let plan: 'free' | 'premium' = (pub?.plan ?? 'free') as 'free' | 'premium';
     const premiumUntil: string | null = pub?.premium_until ?? null;
-    // Auto-expirar: se premium_until passou, tratar como free
+    // Auto-expirar: se premium_until passou, considerar free na exibição
     if (plan === 'premium' && premiumUntil && new Date(premiumUntil) < now) {
       plan = 'free';
     }
     return {
       id: u.id,
       email: u.email ?? '',
-      name: pub?.name ?? (u.user_metadata?.name as string) ?? null,
+      // Suporta tanto coluna 'nome' quanto 'name' conforme versão do schema
+      name: pub?.nome ?? pub?.name ?? (u.user_metadata?.name as string) ?? null,
       plan,
       premium_until: premiumUntil,
       created_at: u.created_at,
@@ -110,13 +112,27 @@ export async function PATCH(req: NextRequest) {
 
   const premium_until = plan === 'premium' ? calcPremiumUntil(days) : null;
 
-  // Upsert — cria a linha se não existir, atualiza se existir
-  const { error: dbError } = await supabase.from('users').upsert(
+  // Tenta upsert com premium_until (requer migration 20260315).
+  // Se falhar (coluna não existe ainda), faz upsert só com plan — garante que o plano
+  // é sempre salvo mesmo sem a migration ter sido rodada.
+  let upsertError: any = null;
+
+  const r1 = await supabase.from('users').upsert(
     { id: userId, email, nome, plan, premium_until },
     { onConflict: 'id' },
   );
+  upsertError = r1.error;
 
-  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
+  if (upsertError) {
+    // Fallback: upsert sem a coluna premium_until
+    const r2 = await supabase.from('users').upsert(
+      { id: userId, email, nome, plan },
+      { onConflict: 'id' },
+    );
+    upsertError = r2.error;
+  }
+
+  if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
 
   return NextResponse.json({ success: true, premium_until });
 }
