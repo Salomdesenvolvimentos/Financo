@@ -50,6 +50,7 @@ import {
   X,
   CreditCard,
   PiggyBank,
+  ChevronUp,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -548,119 +549,117 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            {viewMode === 'yearly' 
-              ? `Visão anual de ${selectedMonth.getFullYear()}` 
-              : `Visão de ${getMonthName(selectedMonth)} de ${selectedMonth.getFullYear()}`}
-          </p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {/* Botão de edição de layout */}
+      {/* Header — compacto e mobile-first */}
+      <div className="space-y-2">
+        {/* Linha título + botão layout */}
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-bold leading-tight">Dashboard</h1>
+            <p className="text-xs text-muted-foreground">
+              {viewMode === 'yearly'
+                ? `Anual · ${selectedMonth.getFullYear()}`
+                : `${getMonthName(selectedMonth)} · ${selectedMonth.getFullYear()}`}
+            </p>
+          </div>
+          {/* Botão de layout ao lado do título */}
           {editMode ? (
-            <div className="flex gap-2">
+            <div className="flex gap-1 flex-shrink-0">
               <Button size="sm" variant="default" onClick={saveLayout}>
-                <Save className="h-4 w-4 mr-1" />
-                Salvar
+                <Save className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline ml-1">Salvar</span>
               </Button>
               <Button size="sm" variant="outline" onClick={cancelEdit}>
-                <X className="h-4 w-4 mr-1" />
-                Cancelar
+                <X className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline ml-1">Cancelar</span>
               </Button>
             </div>
           ) : (
-            <Button size="sm" variant="outline" onClick={startEdit}>
-              <Pencil className="h-4 w-4 mr-1" />
-              Layout
+            <Button size="sm" variant="outline" onClick={startEdit} className="flex-shrink-0">
+              <Pencil className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline ml-1">Layout</span>
             </Button>
           )}
+        </div>
 
-          {/* Controles de Visualização */}
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'monthly' ? 'default' : 'outline'}
-              size="sm"
+        {/* Barra de controles — visão e período em uma linha compacta */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Toggle Mensal / Anual */}
+          <div className="flex rounded-md border border-input overflow-hidden flex-shrink-0 text-xs">
+            <button
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                viewMode === 'monthly'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background text-muted-foreground hover:bg-muted'
+              }`}
               onClick={() => setViewMode('monthly')}
             >
               Mensal
-            </Button>
-            <Button
-              variant={viewMode === 'yearly' ? 'default' : 'outline'}
-              size="sm"
+            </button>
+            <button
+              className={`px-3 py-1.5 font-medium border-l border-input transition-colors ${
+                viewMode === 'yearly'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background text-muted-foreground hover:bg-muted'
+              }`}
               onClick={() => setViewMode('yearly')}
             >
               Anual
-            </Button>
+            </button>
           </div>
 
-          {/* Seletor de Período */}
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
-            {viewMode === 'monthly' ? (
-              <>
-                <select
-                  value={selectedMonth.getFullYear()}
-                  onChange={(e) => {
-                    const year = parseInt(e.target.value);
-                    setSelectedMonth(new Date(year, selectedMonth.getMonth(), 1));
-                  }}
-                  className="px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const year = new Date().getFullYear() - 2 + i;
-                    return (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    );
-                  })}
-                </select>
-                <select
-                  value={selectedMonth.getMonth()}
-                  onChange={(e) => {
-                    const month = parseInt(e.target.value);
-                    setSelectedMonth(new Date(selectedMonth.getFullYear(), month, 1));
-                  }}
-                  className="px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  <option value={0}>Janeiro</option>
-                  <option value={1}>Fevereiro</option>
-                  <option value={2}>Março</option>
-                  <option value={3}>Abril</option>
-                  <option value={4}>Maio</option>
-                  <option value={5}>Junho</option>
-                  <option value={6}>Julho</option>
-                  <option value={7}>Agosto</option>
-                  <option value={8}>Setembro</option>
-                  <option value={9}>Outubro</option>
-                  <option value={10}>Novembro</option>
-                  <option value={11}>Dezembro</option>
-                </select>
-              </>
-            ) : (
+          {/* Seletores de período */}
+          {viewMode === 'monthly' ? (
+            <>
               <select
                 value={selectedMonth.getFullYear()}
                 onChange={(e) => {
                   const year = parseInt(e.target.value);
-                  setSelectedMonth(new Date(year, 0, 1));
+                  setSelectedMonth(new Date(year, selectedMonth.getMonth(), 1));
                 }}
-                className="px-3 py-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="h-7 text-xs px-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {Array.from({ length: 5 }, (_, i) => {
                   const year = new Date().getFullYear() - 2 + i;
-                  return (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  );
+                  return <option key={year} value={year}>{year}</option>;
                 })}
               </select>
-            )}
-          </div>
+              <select
+                value={selectedMonth.getMonth()}
+                onChange={(e) => {
+                  const month = parseInt(e.target.value);
+                  setSelectedMonth(new Date(selectedMonth.getFullYear(), month, 1));
+                }}
+                className="h-7 text-xs px-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value={0}>Janeiro</option>
+                <option value={1}>Fevereiro</option>
+                <option value={2}>Março</option>
+                <option value={3}>Abril</option>
+                <option value={4}>Maio</option>
+                <option value={5}>Junho</option>
+                <option value={6}>Julho</option>
+                <option value={7}>Agosto</option>
+                <option value={8}>Setembro</option>
+                <option value={9}>Outubro</option>
+                <option value={10}>Novembro</option>
+                <option value={11}>Dezembro</option>
+              </select>
+            </>
+          ) : (
+            <select
+              value={selectedMonth.getFullYear()}
+              onChange={(e) => {
+                const year = parseInt(e.target.value);
+                setSelectedMonth(new Date(year, 0, 1));
+              }}
+              className="h-7 text-xs px-2 border border-input bg-background text-foreground rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {Array.from({ length: 5 }, (_, i) => {
+                const year = new Date().getFullYear() - 2 + i;
+                return <option key={year} value={year}>{year}</option>;
+              })}
+            </select>
+          )}
         </div>
       </div>
 

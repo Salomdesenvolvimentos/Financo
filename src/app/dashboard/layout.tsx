@@ -13,7 +13,7 @@ import { usePlan } from '@/hooks/use-plan';
 import { useFriendRequests } from '@/hooks/use-friend-requests';
 import { Sidebar } from '@/components/navbar-sidebar';
 import { NavbarTop } from '@/components/navbar-top';
-import { Loader2, Menu, X } from 'lucide-react';
+import { Loader2, Menu, X, ChevronUp } from 'lucide-react';
 import { AIChatBot } from '@/components/ai-chatbot';
 import { SiteTour } from '@/components/site-tour';
 
@@ -43,6 +43,13 @@ export default function DashboardLayoutNew({
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navbarHidden, setNavbarHidden] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -123,6 +130,16 @@ export default function DashboardLayoutNew({
         </main>
         <AIChatBot />
         <SiteTour />
+        {/* Botão voltar ao topo — aparece ao rolar, apenas no mobile */}
+        {showScrollTop && (
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label="Voltar ao topo"
+            className="fixed left-4 bottom-24 z-40 md:hidden bg-background/70 backdrop-blur-sm border border-border rounded-full p-2 shadow text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all"
+          >
+            <ChevronUp className="h-4 w-4" />
+          </button>
+        )}
       </div>
     );
   }
@@ -162,6 +179,16 @@ export default function DashboardLayoutNew({
         </div>
       </main>
       <AIChatBot />
+      {/* Botão voltar ao topo — aparece ao rolar, apenas no mobile */}
+      {showScrollTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Voltar ao topo"
+          className="fixed left-4 bottom-24 z-40 md:hidden bg-background/70 backdrop-blur-sm border border-border rounded-full p-2 shadow text-muted-foreground hover:text-foreground opacity-70 hover:opacity-100 transition-all"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }

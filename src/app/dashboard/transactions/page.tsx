@@ -65,6 +65,8 @@ import {
   Tag,
   ChevronDown,
   Pencil,
+  Filter,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -95,6 +97,8 @@ export default function TransactionsPage() {
 
   // Cartões de crédito vindos do Pluggy (Open Finance)
   const [pluggyCreditCards, setPluggyCreditCards] = useState<any[]>([]);
+  // Controla visibilidade dos filtros no mobile
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<TransactionFormData>({
@@ -568,177 +572,57 @@ export default function TransactionsPage() {
         );
       })()}
 
-      {/* Barra de Controle */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        {/* Busca */}
-        <div className="w-full sm:flex-1 sm:max-w-sm">
-          <Label htmlFor="search" className="text-xs text-muted-foreground mb-1 block">Buscar transações</Label>
+      {/* Barra de Controle — mobile-first */}
+      <div className="space-y-2">
+        {/* Linha principal: busca + ações */}
+        <div className="flex gap-2 items-center">
           <Input
             id="search"
-            placeholder="Descrição..."
+            placeholder="Buscar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9"
+            className="h-9 flex-1 min-w-0"
           />
-        </div>
-
-        {/* Filtros */}
-        <div className="flex gap-2 flex-wrap">
-          <div className="min-w-[140px]">
-            <Label htmlFor="filter-type" className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
-            <Select
-              value={filters.tipo || 'all'}
-              onValueChange={(value) =>
-                setFilters({
-                  ...filters,
-                  tipo: value === 'all' ? undefined : (value as any),
-                })
-              }
-            >
-              <SelectTrigger id="filter-type" className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="receita">Receita</SelectItem>
-                <SelectItem value="despesa">Despesa</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-w-[140px]">
-            <Label htmlFor="filter-category" className="text-xs text-muted-foreground mb-1 block">Categoria</Label>
-            <Select
-              value={filters.categoria_id || 'all'}
-              onValueChange={(value) =>
-                setFilters({
-                  ...filters,
-                  categoria_id: value === 'all' ? undefined : value,
-                })
-              }
-            >
-              <SelectTrigger id="filter-category" className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-w-[140px]">
-            <Label htmlFor="filter-card" className="text-xs text-muted-foreground mb-1 block">Cartão</Label>
-            <Select
-              value={filters.forma_pagamento || 'all'}
-              onValueChange={(value) =>
-                setFilters({
-                  ...filters,
-                  forma_pagamento: value === 'all' ? undefined : value,
-                })
-              }
-            >
-              <SelectTrigger id="filter-card" className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="Nubank">Nubank</SelectItem>
-                <SelectItem value="Santander">Santander</SelectItem>
-                <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                <SelectItem value="Pix">Pix</SelectItem>
-                <SelectItem value="Transferência">Transferência</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-w-[120px]">
-            <Label htmlFor="filter-year" className="text-xs text-muted-foreground mb-1 block">Ano</Label>
-            <Select
-              value={filterYear || 'all'}
-              onValueChange={(value) => {
-                const y = value === 'all' ? '' : value;
-                setFilterYear(y);
-                const m = filterMonth;
-                setFilters({ ...filters, mes: y && m ? `${y}-${m}` : undefined });
-              }}
-            >
-              <SelectTrigger id="filter-year" className="h-9 text-sm">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {Array.from({ length: 5 }, (_, i) => {
-                  const y = String(new Date().getFullYear() - 2 + i);
-                  return <SelectItem key={y} value={y}>{y}</SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-w-[130px]">
-            <Label htmlFor="filter-month" className="text-xs text-muted-foreground mb-1 block">Mês</Label>
-            <Select
-              value={filterMonth || 'all'}
-              onValueChange={(value) => {
-                const m = value === 'all' ? '' : value;
-                setFilterMonth(m);
-                const y = filterYear;
-                setFilters({ ...filters, mes: y && m ? `${y}-${m}` : undefined });
-              }}
-            >
-              <SelectTrigger id="filter-month" className="h-9 text-sm">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="01">Janeiro</SelectItem>
-                <SelectItem value="02">Fevereiro</SelectItem>
-                <SelectItem value="03">Março</SelectItem>
-                <SelectItem value="04">Abril</SelectItem>
-                <SelectItem value="05">Maio</SelectItem>
-                <SelectItem value="06">Junho</SelectItem>
-                <SelectItem value="07">Julho</SelectItem>
-                <SelectItem value="08">Agosto</SelectItem>
-                <SelectItem value="09">Setembro</SelectItem>
-                <SelectItem value="10">Outubro</SelectItem>
-                <SelectItem value="11">Novembro</SelectItem>
-                <SelectItem value="12">Dezembro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Ações */}
-        <div className="flex gap-2">
+          <Button onClick={handleNewTransaction} size="sm" className="gap-1 flex-shrink-0">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova</span>
+          </Button>
           <Button
             variant="outline"
+            size="sm"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={`flex-shrink-0 gap-1 sm:hidden ${
+              filtersOpen ? 'bg-primary/10 border-primary/50 text-primary' : ''
+            }`}
+            title="Mostrar/ocultar filtros"
+          >
+            <Filter className="h-4 w-4" />
+            {[filters.tipo, filters.categoria_id, filters.forma_pagamento, filters.mes].filter(Boolean).length > 0 && (
+              <span className="bg-primary text-primary-foreground text-[10px] rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                {[filters.tipo, filters.categoria_id, filters.forma_pagamento, filters.mes].filter(Boolean).length}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleDeleteAll}
             disabled={loading || transactions.length === 0}
             title="Excluir todas as transações"
+            className="flex-shrink-0"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
-          <Button
-            onClick={handleNewTransaction}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Nova
-          </Button>
           {/* Categoria dropdown */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <Button
               variant="outline"
-              className="gap-2"
+              size="sm"
+              className="gap-1"
               onClick={() => setCategoryDropdownOpen((v) => !v)}
             >
               <Tag className="h-4 w-4" />
-              Categoria
+              <span className="hidden sm:inline">Categoria</span>
               <ChevronDown className="h-4 w-4" />
             </Button>
             {categoryDropdownOpen && (
@@ -762,6 +646,126 @@ export default function TransactionsPage() {
             )}
           </div>
         </div>
+
+        {/* Painel de filtros: colapsável no mobile, sempre visível no desktop */}
+        <div className={`${filtersOpen ? 'flex' : 'hidden'} sm:flex gap-2 flex-wrap`}>
+          <div className="min-w-[120px]">
+            <Label htmlFor="filter-type" className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
+            <Select
+              value={filters.tipo || 'all'}
+              onValueChange={(value) =>
+                setFilters({ ...filters, tipo: value === 'all' ? undefined : (value as any) })
+              }
+            >
+              <SelectTrigger id="filter-type" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="receita">Receita</SelectItem>
+                <SelectItem value="despesa">Despesa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[130px]">
+            <Label htmlFor="filter-category" className="text-xs text-muted-foreground mb-1 block">Categoria</Label>
+            <Select
+              value={filters.categoria_id || 'all'}
+              onValueChange={(value) =>
+                setFilters({ ...filters, categoria_id: value === 'all' ? undefined : value })
+              }
+            >
+              <SelectTrigger id="filter-category" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[130px]">
+            <Label htmlFor="filter-card" className="text-xs text-muted-foreground mb-1 block">Cartão</Label>
+            <Select
+              value={filters.forma_pagamento || 'all'}
+              onValueChange={(value) =>
+                setFilters({ ...filters, forma_pagamento: value === 'all' ? undefined : value })
+              }
+            >
+              <SelectTrigger id="filter-card" className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="Nubank">Nubank</SelectItem>
+                <SelectItem value="Santander">Santander</SelectItem>
+                <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                <SelectItem value="Pix">Pix</SelectItem>
+                <SelectItem value="Transferência">Transferência</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[100px]">
+            <Label htmlFor="filter-year" className="text-xs text-muted-foreground mb-1 block">Ano</Label>
+            <Select
+              value={filterYear || 'all'}
+              onValueChange={(value) => {
+                const y = value === 'all' ? '' : value;
+                setFilterYear(y);
+                const m = filterMonth;
+                setFilters({ ...filters, mes: y && m ? `${y}-${m}` : undefined });
+              }}
+            >
+              <SelectTrigger id="filter-year" className="h-8 text-xs">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {Array.from({ length: 5 }, (_, i) => {
+                  const y = String(new Date().getFullYear() - 2 + i);
+                  return <SelectItem key={y} value={y}>{y}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[120px]">
+            <Label htmlFor="filter-month" className="text-xs text-muted-foreground mb-1 block">Mês</Label>
+            <Select
+              value={filterMonth || 'all'}
+              onValueChange={(value) => {
+                const m = value === 'all' ? '' : value;
+                setFilterMonth(m);
+                const y = filterYear;
+                setFilters({ ...filters, mes: y && m ? `${y}-${m}` : undefined });
+              }}
+            >
+              <SelectTrigger id="filter-month" className="h-8 text-xs">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="01">Janeiro</SelectItem>
+                <SelectItem value="02">Fevereiro</SelectItem>
+                <SelectItem value="03">Março</SelectItem>
+                <SelectItem value="04">Abril</SelectItem>
+                <SelectItem value="05">Maio</SelectItem>
+                <SelectItem value="06">Junho</SelectItem>
+                <SelectItem value="07">Julho</SelectItem>
+                <SelectItem value="08">Agosto</SelectItem>
+                <SelectItem value="09">Setembro</SelectItem>
+                <SelectItem value="10">Outubro</SelectItem>
+                <SelectItem value="11">Novembro</SelectItem>
+                <SelectItem value="12">Dezembro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
       {/* Tabela de Transações */}
@@ -782,7 +786,87 @@ export default function TransactionsPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-6">
+            <>
+              {/* Vista em cards — mobile */}
+              <div className="sm:hidden space-y-2">
+                {paginatedTransactions.length === 0 ? (
+                  <p className="text-center py-8 text-sm text-muted-foreground">Nenhuma transação encontrada</p>
+                ) : paginatedTransactions.map((transaction) => (
+                  <div key={transaction.id} className="border rounded-lg p-3 space-y-1.5 hover:bg-muted/20 transition-colors">
+                    {/* Linha 1: descrição + valor */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{transaction.descricao}</p>
+                        {transaction.is_fatura && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 mt-0.5">
+                            <CreditCard className="h-2.5 w-2.5" />
+                            Fatura
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-sm font-bold flex-shrink-0 ${transaction.tipo === 'receita' ? 'text-success' : 'text-danger'}`}>
+                        {transaction.tipo === 'despesa' ? '−' : '+'}{formatCurrency(Number(transaction.valor))}
+                      </span>
+                    </div>
+                    {/* Linha 2: tipo + categoria */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        transaction.tipo === 'receita' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
+                      }`}>
+                        {transaction.tipo === 'receita' ? 'Receita' : 'Despesa'}
+                      </span>
+                      {transaction.categoria?.nome && (
+                        <span className="text-xs text-muted-foreground">{transaction.categoria.nome}</span>
+                      )}
+                      {transaction.parcelado && (
+                        <span className="text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded">
+                          {transaction.parcela_atual ?? 1}/{transaction.total_parcelas ?? 1}x
+                        </span>
+                      )}
+                    </div>
+                    {/* Linha 3: data + status + cartão */}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <span>{formatDate(transaction.data_transacao)}</span>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium ${
+                        transaction.status === 'pago' ? 'bg-success/10 text-success' :
+                        transaction.status === 'vencido' ? 'bg-danger/10 text-danger' :
+                        'bg-warning/10 text-warning'
+                      }`}>
+                        {transaction.status === 'pago' ? 'Pago' : transaction.status === 'vencido' ? 'Vencido' : 'Em Andamento'}
+                      </span>
+                      {transaction.forma_pagamento && <span>{transaction.forma_pagamento}</span>}
+                    </div>
+                    {/* Ações */}
+                    <div className="flex justify-end gap-1 pt-1 border-t border-border/40">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-7 w-7 ${transaction.is_fatura ? 'text-amber-600' : 'text-muted-foreground'}`}
+                        title={transaction.is_fatura ? 'Desmarcar Fatura' : 'Marcar como Fatura'}
+                        onClick={() => handleToggleFatura(transaction)}
+                      >
+                        <CreditCard className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditTransaction(transaction)}>
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => handleDeleteTransaction(transaction.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {/* Dica de tela landscape */}
+                {paginatedTransactions.length > 0 && (
+                  <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground py-2 opacity-60">
+                    <RotateCcw className="h-3 w-3" />
+                    Vire o celular para ver a tabela completa
+                  </p>
+                )}
+              </div>
+
+              {/* Tabela completa — desktop */}
+              <div className="hidden sm:block overflow-x-auto -mx-6">
               <table className="w-full min-w-[900px]">
                 <thead>
                   <tr className="border-b bg-muted/40 hover:bg-muted/40">
@@ -1175,6 +1259,7 @@ export default function TransactionsPage() {
                 </div>
               )}
             </div>
+            </>
           )}
         </CardContent>
 

@@ -1024,15 +1024,15 @@ export default function ImportPage() {
               </label>
             </div>
             {file && (
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  <FileText className="h-6 w-6 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium">{file.name}</p>
+                  <FileText className="h-6 w-6 text-primary flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{file.name}</p>
                     <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</p>
                   </div>
                 </div>
-                <Button onClick={handleUpload} disabled={uploading} size="sm" className="gap-2">
+                <Button onClick={handleUpload} disabled={uploading} size="sm" className="gap-2 w-full sm:w-auto">
                   {uploading ? <><Loader2 className="h-3 w-3 animate-spin" />Processando...</> : <><CheckCircle className="h-3 w-3" />Processar</>}
                 </Button>
               </div>

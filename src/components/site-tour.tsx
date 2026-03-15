@@ -175,6 +175,28 @@ function initCheckbox() {
   });
 }
 
+/** Injeta botão "Pular" na barra de navegação do driver.js */
+function injectSkipButton(driverObj: { destroy: () => void }) {
+  // Remove botão anterior se existir
+  document.getElementById('financo-tour-skip')?.remove();
+  const footer = document.querySelector('.driver-popover-footer');
+  if (!footer) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'financo-tour-skip';
+  btn.textContent = 'Pular';
+  btn.style.cssText =
+    'background:transparent;border:none;cursor:pointer;font-size:13px;padding:6px 12px;opacity:0.65;color:inherit;flex-shrink:0;';
+  btn.addEventListener('mouseenter', () => { btn.style.opacity = '1'; });
+  btn.addEventListener('mouseleave', () => { btn.style.opacity = '0.65'; });
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    driverObj.destroy();
+  });
+  // Insere antes do primeiro botão (Anterior / Próximo)
+  footer.insertBefore(btn, footer.firstChild);
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function SiteTour() {
   const { user } = useAuth();
@@ -192,6 +214,22 @@ export function SiteTour() {
 
     const { driver } = await import('driver.js');
 
+    // No mobile, filtra passos que referenciam elementos ocultos (sidebar colapsada)
+    const isMobile = window.innerWidth < 768;
+    const filteredSteps = steps.filter((s) => {
+      if (!s.element) return true; // passos overlay sempre aparecem
+      const el = document.querySelector(s.element);
+      if (!el) return false; // elemento não existe, pular
+      if (isMobile) {
+        // Pular se o elemento estiver com display:none ou fora do viewport
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return false;
+      }
+      return true;
+    });
+
     const driverObj = driver({
       showProgress: true,
       progressText: 'Passo {{current}} de {{total}}',
@@ -205,8 +243,13 @@ export function SiteTour() {
       popoverClass: 'financo-tour-popover',
       onNextClick: () => {
         const idx = driverObj.getActiveIndex() ?? 0;
-        if (idx === steps.length - 2) setTimeout(initCheckbox, 80);
+        if (idx === filteredSteps.length - 2) setTimeout(initCheckbox, 80);
         driverObj.moveNext();
+        setTimeout(() => injectSkipButton(driverObj), 80);
+      },
+      onPrevClick: () => {
+        driverObj.movePrevious();
+        setTimeout(() => injectSkipButton(driverObj), 80);
       },
       onDestroyStarted: () => {
         localStorage.setItem(TOUR_KEY, 'true');
@@ -215,10 +258,10 @@ export function SiteTour() {
       },
       onDestroyed: () => {
         setTourActive(false);
-        // limpa referência
         (driverRef as any)[1](null);
+        document.getElementById('financo-tour-skip')?.remove();
       },
-      steps: steps.map((s) => ({
+      steps: filteredSteps.map((s) => ({
         element: s.element,
         popover: s.popover as import('driver.js').Popover,
       })),
@@ -227,6 +270,8 @@ export function SiteTour() {
     // Guarda referência para poder destruir de fora
     (driverRef as any)[1](driverObj);
     driverObj.drive();
+    // Injeta botão Pular após breve delay para o popover renderizar
+    setTimeout(() => injectSkipButton(driverObj), 300);
   }, [driverRef]);
 
   const skipTour = useCallback(() => {

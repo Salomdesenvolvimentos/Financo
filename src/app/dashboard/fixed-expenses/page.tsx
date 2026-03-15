@@ -58,6 +58,7 @@ import {
   Tag,
   ChevronDown,
   Pencil,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function FixedExpensesPage() {
@@ -443,6 +444,44 @@ export default function FixedExpensesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto -mx-6">
+              {/* Vista em cards — mobile */}
+              <div className="sm:hidden space-y-2">
+                {paginated.map((expense) => (
+                  <div key={expense.id} className="border rounded-lg p-3 space-y-1.5 hover:bg-muted/20 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-medium">{expense.descricao}</span>
+                      <span className="text-sm font-bold text-danger flex-shrink-0">{formatCurrency(expense.valor)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {expense.categoria?.nome && (
+                        <span className="text-xs text-muted-foreground">{expense.categoria.nome}</span>
+                      )}
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />Dia {expense.dia_vencimento}
+                      </span>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium ${
+                        expense.ativo ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {expense.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                    <div className="flex justify-end gap-1 pt-1 border-t border-border/40">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDialog(expense)}>
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => handleDelete(expense)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground py-2 opacity-60">
+                  <RotateCcw className="h-3 w-3" />
+                  Vire o celular para ver a tabela completa
+                </p>
+              </div>
+              {/* Tabela completa — desktop */}
+              <div className="hidden sm:block overflow-x-auto -mx-6">
               <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
@@ -499,6 +538,7 @@ export default function FixedExpensesPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
             </div>
           )}
           {/* Paginação */}
