@@ -100,59 +100,65 @@ export async function parsePDF(file: File): Promise<ParsedTransaction[]> {
 
 /**
  * Extrai texto do PDF no navegador
+ *
+ * Usa agrupamento por bucket de Y em vez de comparar Y consecutivos.
+ * Isso evita que mistura de tamanhos de fonte (baselines diferentes em até
+ * 2-4px) divida a mesma linha em múltiplas linhas, o que fazia a regex de
+ * data falhar e deixava o currentDate do dia anterior em uso para o dia
+ * seguinte (deslocamento de +1 dia nas transações).
  */
 async function extractTextFromPDF(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
-  
+
   try {
-    // Carregar PDF.js via CDN
     const pdfjsLib = await loadPDFJS();
-    if (!pdfjsLib) {
-      throw new Error('PDF.js não está disponível');
-    }
-    
+    if (!pdfjsLib) throw new Error('PDF.js não está disponível');
+
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
     let fullText = '';
-    
-    // Extrair texto de todas as páginas preservando quebras de linha
+
+    // Tolerância: itens com diferença de Y ≤ BUCKET_PX são considerados na mesma linha
+    const BUCKET_PX = 5;
+
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      
-      let lastY = -1;
-      const pageLines: string[] = [];
-      let currentLine = '';
-      
-      textContent.items.forEach((item: any) => {
-        const currentY = item.transform[5];
-        const text = item.str;
-        
-        // Se mudou de linha (Y diferente com margem de 2px), adiciona linha atual e começa nova
-        if (lastY !== -1 && Math.abs(currentY - lastY) > 2) {
-          if (currentLine.trim()) {
-            pageLines.push(currentLine.trim());
-          }
-          currentLine = text;
-        } else {
-          // Mesma linha, adiciona espaço se necessário
-          if (currentLine && !currentLine.endsWith(' ') && !text.startsWith(' ')) {
-            currentLine += ' ';
-          }
-          currentLine += text;
+
+      // Agrupar itens por Y (dentro da tolerância)
+      const buckets = new Map<number, { text: string; x: number }[]>();
+
+      for (const item of textContent.items as any[]) {
+        const y: number = item.transform[5];
+        const x: number = item.transform[4];
+        const text: string = item.str ?? '';
+        if (!text.trim()) continue;
+
+        // Procurar bucket existente dentro da tolerância
+        let foundKey: number | undefined;
+        for (const key of buckets.keys()) {
+          if (Math.abs(key - y) <= BUCKET_PX) { foundKey = key; break; }
         }
-        
-        lastY = currentY;
-      });
-      
-      // Adicionar última linha
-      if (currentLine.trim()) {
-        pageLines.push(currentLine.trim());
+        if (foundKey !== undefined) {
+          buckets.get(foundKey)!.push({ text, x });
+        } else {
+          buckets.set(y, [{ text, x }]);
+        }
       }
-      
+
+      // Ordenar linhas de cima para baixo (Y maior = mais alto na página nos PDFs)
+      // e itens dentro de cada linha da esquerda para a direita
+      const pageLines = [...buckets.entries()]
+        .sort((a, b) => b[0] - a[0])
+        .map(([, items]) => {
+          items.sort((a, b) => a.x - b.x);
+          return items.map(i => i.text).join(' ').replace(/\s{2,}/g, ' ').trim();
+        })
+        .filter(l => l.length > 0);
+
       fullText += pageLines.join('\n') + '\n\n';
     }
-    
+
     return fullText;
   } catch (error) {
     console.error('Erro ao extrair texto do PDF:', error);

@@ -35,6 +35,7 @@ import { upsertInvestment } from '@/services/investments.local';
 import type { InvestmentType } from '@/types';
 import { getCategories } from '@/services/categories.local';
 import { parsePDF, validateTransactions } from '@/services/pdf-parser';
+import { parseCSVSmart } from '@/services/csv-parser';
 import { suggestCategory, saveLearnedRule } from '@/services/categorization';
 import type { Category } from '@/types';
 import { formatDateISO } from '@/lib/utils';
@@ -493,9 +494,11 @@ export default function ImportPage() {
           return;
         }
       } else {
-        // Processar CSV
+        // Processar CSV — tenta parser inteligente com detecção de banco;
+        // se falhar (colunas não reconhecidas), cai no parser básico.
         const text = await file.text();
-        parsedData = parseCSV(text);
+        const smartRows = parseCSVSmart(text);
+        parsedData = smartRows.length > 0 ? smartRows : parseCSV(text);
 
         if (parsedData.length === 0) {
           toast({

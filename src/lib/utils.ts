@@ -25,9 +25,20 @@ export function formatCurrency(value: number): string {
 }
 
 /**
- * Formata data para o padrão brasileiro
+ * Formata data para o padrão brasileiro (DD/MM/YYYY).
+ * Strings ISO (YYYY-MM-DD) são decompostas por componente para evitar
+ * a conversão UTC→local que new Date('YYYY-MM-DD') aplica, o que causaria
+ * exibição de -1 dia em fusos negativos (ex: UTC-3 no Brasil).
  */
 export function formatDate(date: string | Date): string {
+  if (typeof date === 'string') {
+    const base = date.split('T')[0]; // remove eventual componente de hora
+    const parts = base.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+  }
   const d = typeof date === 'string' ? new Date(date) : date;
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
