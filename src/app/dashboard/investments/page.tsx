@@ -54,6 +54,8 @@ import {
   Newspaper,
   ArrowUpRight,
   ArrowDownRight,
+  RotateCcw,
+  ChevronDown,
 } from 'lucide-react';
 import { CryptoTicker } from '@/components/crypto-ticker';
 
@@ -67,6 +69,7 @@ function MarketSidebar() {
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [loadingRates, setLoadingRates] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [collapsed, setCollapsed] = useState(true); // colapsado por padrão no mobile
 
   const fixedIndicators: MarketIndicator[] = [
     { label: 'SELIC (meta)', value: '13,75% a.a.', change: 'Banco Central', positive: false },
@@ -115,7 +118,21 @@ function MarketSidebar() {
   }, []);
 
   return (
-    <aside className="w-72 shrink-0 space-y-4">
+    <aside className="w-full lg:w-72 lg:shrink-0 space-y-4">
+      {/* Botão toggle — visível apenas no mobile */}
+      <button
+        className="lg:hidden w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors text-sm font-medium"
+        onClick={() => setCollapsed((v) => !v)}
+      >
+        <span className="flex items-center gap-2">
+          <Globe className="h-4 w-4 text-blue-500" />
+          Mercado &amp; Indicadores
+        </span>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+      </button>
+
+      {/* Conteúdo: sempre visível no desktop, colapsável no mobile */}
+      <div className={`${collapsed ? 'hidden' : 'flex flex-col gap-4'} lg:flex lg:flex-col lg:gap-4`}>
       {/* Câmbio */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4">
@@ -156,9 +173,7 @@ function MarketSidebar() {
                     <p className="text-[10px] text-muted-foreground">{r.code}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold">
-                      {r.code === 'BTC' ? `R$ ${r.bid}` : `R$ ${r.bid}`}
-                    </p>
+                    <p className="text-sm font-bold">R$ {r.bid}</p>
                     <span className={`text-[10px] font-medium flex items-center justify-end gap-0.5 ${up ? 'text-emerald-500' : 'text-red-500'}`}>
                       {up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                       {up ? '+' : ''}{pct.toFixed(2)}%
@@ -211,6 +226,7 @@ function MarketSidebar() {
           ))}
         </CardContent>
       </Card>
+      </div>
     </aside>
   );
 }
@@ -393,19 +409,19 @@ export default function InvestmentsPage() {
   }
 
   return (
-    <div className="flex gap-6 items-start">
+    <div className="flex flex-col lg:flex-row gap-6 items-start">
       {/* Conteúdo principal */}
       <div className="flex-1 min-w-0 space-y-6">
       {/* Ticker de Criptomoedas */}
       <CryptoTicker />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Investimentos</h1>
-          <p className="text-muted-foreground">Acompanhe sua carteira de investimentos</p>
+          <h1 className="text-2xl font-bold">Investimentos</h1>
+          <p className="text-sm text-muted-foreground">Acompanhe sua carteira de investimentos</p>
         </div>
-        <Button onClick={() => openForm()} disabled={formOpen}>
+        <Button onClick={() => openForm()} disabled={formOpen} size="sm">
           <Plus className="h-4 w-4 mr-2" />
           Novo Investimento
         </Button>
@@ -630,7 +646,90 @@ export default function InvestmentsPage() {
               <p className="text-sm mt-1">Clique em &quot;Novo Investimento&quot; para começar</p>
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-6">
+            <>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-3">
+              {paginated.map((inv) => {
+                const diff = inv.valor_atual - inv.valor_investido;
+                const pct = inv.valor_investido > 0 ? (diff / inv.valor_investido) * 100 : 0;
+                return (
+                  <div key={inv.id} className={`rounded-lg border p-4 space-y-3 ${selectedIds.has(inv.id) ? 'border-primary/50 bg-primary/5' : 'bg-card'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded shrink-0"
+                          checked={selectedIds.has(inv.id)}
+                          onChange={(e) => {
+                            setSelectedIds((prev) => {
+                              const n = new Set(prev);
+                              if (e.target.checked) n.add(inv.id); else n.delete(inv.id);
+                              return n;
+                            });
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{inv.nome}</p>
+                          {inv.notas && <p className="text-xs text-muted-foreground truncate">{inv.notas}</p>}
+                        </div>
+                      </div>
+                      <p className={`text-base font-bold shrink-0 ${diff >= 0 ? 'text-success' : 'text-danger'}`}>
+                        {formatCurrency(inv.valor_atual)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${INVESTMENT_TYPE_COLORS[inv.tipo]}`}>
+                        {INVESTMENT_TYPE_LABELS[inv.tipo]}
+                      </span>
+                      {inv.instituicao && (
+                        <span className="text-xs text-muted-foreground">{inv.instituicao}</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Investido</p>
+                        <p className="font-medium">{formatCurrency(inv.valor_investido)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Ganho/Perda</p>
+                        <p className={`font-semibold ${diff >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
+                          <span className="text-xs ml-1">({diff >= 0 ? '+' : ''}{pct.toFixed(1)}%)</span>
+                        </p>
+                      </div>
+                      {inv.rentabilidade_anual != null && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Rent./ano</p>
+                          <p className="font-medium">{inv.rentabilidade_anual}% a.a.</p>
+                        </div>
+                      )}
+                      {inv.vencimento && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Vencimento</p>
+                          <p className="font-medium">{new Date(inv.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1 border-t">
+                      <Button variant="ghost" size="sm" className="h-8 px-3 text-xs" onClick={() => openForm(inv)}>
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Editar
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 px-3 text-xs hover:text-destructive" onClick={() => handleDelete(inv)}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Excluir
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground pt-1">
+                <RotateCcw className="h-3 w-3" /> Gire o dispositivo para ver a tabela completa
+              </p>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto -mx-6">
               <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b bg-muted/40">
@@ -738,8 +837,7 @@ export default function InvestmentsPage() {
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
+            </div>            </>          )}
           {/* Paginação */}
           {filtered.length > 0 && (
             <div className="flex items-center justify-between px-6 py-3 border-t">

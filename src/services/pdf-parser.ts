@@ -31,10 +31,9 @@ async function loadPDFJS() {
     return window.pdfjsLib;
   }
   
-  // Subresource Integrity (SRI) hash prevents CDN compromise (supply-chain XSS).
-  // Verify this hash whenever upgrading PDF.js:
-  //   curl -s https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js | openssl dgst -sha384 -binary | openssl base64 -A
-  const PDFJS_SRI = 'sha384-wPGCaEWlXJgLO0qABQBJaSk0BGWRvp2QkjJiSR8G3pGV4cIMLG2yZsNgxfFRKGJ';
+  // Subresource Integrity (SRI) hash — computed from the actual CDN bytes.
+  // Update whenever upgrading PDF.js version.
+  const PDFJS_SRI = 'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e';
   const WORKER_SRI = 'sha384-FHWLEV7mwLXesFqbIQqm5VKkPcWQfCoHC/WQxaAMSTJLGj3gicCKU7FWuCAtBnY';
 
   return new Promise((resolve, reject) => {
