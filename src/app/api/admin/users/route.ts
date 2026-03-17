@@ -77,6 +77,8 @@ export async function GET(req: NextRequest) {
       plan,
       premium_until: premiumUntil,
       created_at: u.created_at,
+      last_sign_in_at: u.last_sign_in_at ?? null,
+      email_confirmed_at: u.email_confirmed_at ?? null,
     };
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 

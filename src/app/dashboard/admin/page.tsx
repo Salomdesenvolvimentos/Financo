@@ -24,6 +24,7 @@ import {
   XCircle,
   DollarSign,
   Calendar,
+  Clock,
 } from 'lucide-react';
 
 const ADMIN_EMAIL = 'salomdesenvolvimentos@hotmail.com';
@@ -43,6 +44,8 @@ type AdminUser = {
   plan: 'free' | 'premium';
   premium_until: string | null;
   created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
 };
 
 export default function AdminPage() {
@@ -332,7 +335,7 @@ export default function AdminPage() {
               {/* Header row */}
               <div className="grid grid-cols-12 gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground border-b">
                 <div className="col-span-4">Usuário</div>
-                <div className="col-span-2">Cadastro</div>
+                <div className="col-span-2">Cadastro / Login</div>
                 <div className="col-span-3">Plano</div>
                 <div className="col-span-3 text-right">Ação</div>
               </div>
@@ -340,15 +343,26 @@ export default function AdminPage() {
               {filtered.map(u => (
                 <Fragment key={u.id}>
                   <div className="grid grid-cols-12 gap-2 px-3 py-2.5 rounded-lg hover:bg-muted/40 transition-colors items-center text-sm">
-                    {/* Nome / e-mail */}
+                    {/* Nome / e-mail / email confirmado */}
                     <div className="col-span-4 min-w-0">
                       <p className="font-medium truncate">{u.name ?? '—'}</p>
                       <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                      <span className={`text-xs font-medium ${u.email_confirmed_at ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                        {u.email_confirmed_at ? '✓ E-mail confirmado' : '✗ Não confirmado'}
+                      </span>
                     </div>
 
-                    {/* Data de cadastro */}
-                    <div className="col-span-2 text-xs text-muted-foreground">
-                      {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                    {/* Cadastro + último login */}
+                    <div className="col-span-2 text-xs text-muted-foreground space-y-0.5">
+                      <p>{new Date(u.created_at).toLocaleDateString('pt-BR')}</p>
+                      {u.last_sign_in_at ? (
+                        <p className="flex items-center gap-0.5">
+                          <Clock className="h-2.5 w-2.5 shrink-0" />
+                          {new Date(u.last_sign_in_at).toLocaleDateString('pt-BR')}
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground/50">Nunca</p>
+                      )}
                     </div>
 
                     {/* Plano + expiração */}
