@@ -16,13 +16,14 @@ import { NavbarTop } from '@/components/navbar-top';
 import { Loader2, Menu, X, ChevronUp } from 'lucide-react';
 import { AIChatBot } from '@/components/ai-chatbot';
 import { SiteTour } from '@/components/site-tour';
+import { EmailConfirmationBanner } from '@/components/email-confirmation-banner';
 
 export default function DashboardLayoutNew({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, emailConfirmed } = useAuth();
   const router = useRouter();
   const { settings: menuSettings } = useMenuSettings();
   const { isPremium } = usePlan();
@@ -125,6 +126,9 @@ export default function DashboardLayoutNew({
           effectiveBehavior === 'fixed' ? 'md:ml-64' : mobileMenuOpen ? 'md:ml-64' : 'ml-0'
         }`}>
           <div className="container py-4 md:py-6">
+            {emailConfirmed === false && user?.email && (
+              <EmailConfirmationBanner email={user.email} />
+            )}
             {children}
           </div>
         </main>
@@ -175,6 +179,9 @@ export default function DashboardLayoutNew({
       {/* Main Content — padding-top compensa a navbar fixa */}
       <main className={`flex-1 transition-all duration-300 ${navbarHidden ? 'pt-5' : 'pt-14'}`}>
         <div className="container py-4 md:py-6">
+          {emailConfirmed === false && user?.email && (
+            <EmailConfirmationBanner email={user.email} />
+          )}
           {children}
         </div>
       </main>

@@ -14,6 +14,7 @@ import type { User } from '@/types';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [emailConfirmed, setEmailConfirmed] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -37,6 +38,7 @@ export function useAuth() {
           if (!mounted) return;
 
           if (session?.user) {
+            setEmailConfirmed(!!session.user.email_confirmed_at);
             // Libera a tela imediatamente com dados básicos
             const basicUser: User = {
               id: session.user.id,
@@ -78,7 +80,9 @@ export function useAuth() {
         if (!mounted) return;
         if (!session?.user) {
           setUser(null);
+          setEmailConfirmed(null);
         } else {
+          setEmailConfirmed(!!session.user.email_confirmed_at);
           setUser((prev) => prev ?? {
             id: session.user!.id,
             email: session.user!.email || '',
@@ -97,5 +101,5 @@ export function useAuth() {
     }
   }, []);
 
-  return { user, loading };
+  return { user, loading, emailConfirmed };
 }
