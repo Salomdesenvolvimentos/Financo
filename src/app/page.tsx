@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, TrendingUp, Bot, FileUp, Wifi } from 'lucide-react';
 import Image from 'next/image';
 import logoPreto from '@/Financo_preto.png';
+import { EmailConfirmationBanner } from '@/components/email-confirmation-banner';
 
 const FEATURES = [
   { icon: TrendingUp, label: 'Gráficos em tempo real' },
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
 
   const isLocalMode = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('localhost:54321');
   const [formData, setFormData] = useState({
@@ -46,7 +48,12 @@ export default function LoginPage() {
     setLoading(true);
     const { error } = await signIn(formData.email, formData.password);
     if (error) {
-      toast({ title: 'Erro ao fazer login', description: error, variant: 'destructive' });
+      // Verificar se o erro é de e-mail não confirmado
+      if (error.toLowerCase().includes('email not confirmed') || error.toLowerCase().includes('e-mail não confirmado')) {
+        setEmailNotConfirmed(true);
+      } else {
+        toast({ title: 'Erro ao fazer login', description: error, variant: 'destructive' });
+      }
       setLoading(false);
     } else {
       toast({ title: 'Login realizado com sucesso!', variant: 'success' });
@@ -119,6 +126,11 @@ export default function LoginPage() {
             <p className="text-slate-400 text-sm">Entre na sua conta para continuar</p>
           </div>
 
+          {/* Banner de e-mail não confirmado */}
+          {emailNotConfirmed && (
+            <EmailConfirmationBanner email={formData.email} />
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-slate-300 text-sm">E-mail</Label>
@@ -127,7 +139,10 @@ export default function LoginPage() {
                 type="email"
                 placeholder="seu@email.com"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  setEmailNotConfirmed(false); // Limpar o banner se o e-mail mudar
+                }}
                 required
                 autoComplete="email"
                 aria-required="true"
