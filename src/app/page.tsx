@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, TrendingUp, Bot, FileUp, Wifi, MailCheck } from 'lucide-react';
 import Image from 'next/image';
-import logoPreto from '@/Financo_preto.png';
+import logoBranco from '@/Financo_branco.png';
 import { EmailConfirmationBanner } from '@/components/email-confirmation-banner';
 
 const FEATURES = [
@@ -91,7 +91,7 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div>
-            <Image src={logoPreto} alt="Financo" width={150} height={48} className="object-contain" priority />
+            <Image src={logoBranco} alt="Financo" width={150} height={48} className="object-contain" priority />
           </div>
 
           {/* Texto central */}
@@ -122,7 +122,7 @@ export default function LoginPage() {
 
           {/* Logo mobile */}
           <div className="lg:hidden mb-8 flex justify-center">
-            <Image src={logoPreto} alt="Financo" width={120} height={38} className="object-contain" priority />
+            <Image src={logoBranco} alt="Financo" width={120} height={38} className="object-contain" priority />
           </div>
 
           <div className="space-y-1 mb-8">
