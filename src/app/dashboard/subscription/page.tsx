@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { apiUrl } from '@/lib/api-url';
+import { supabase } from '@/lib/supabase';
 import {
   Crown,
   Check,
@@ -27,7 +28,6 @@ import {
   CreditCard,
   Receipt,
 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 
 const FREE_FEATURES = [
   { label: 'Transações manuais ilimitadas', included: true },
@@ -79,11 +79,7 @@ export default function SubscriptionPage() {
     if (!user) return;
     setPaying(true);
     try {
-      // Obter token de sessão do Supabase para autenticar a chamada
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
+      // Usa o singleton do Supabase (storageKey: 'finaco-auth') para obter o token
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token ?? '';
 
