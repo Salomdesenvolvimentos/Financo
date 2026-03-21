@@ -11,8 +11,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 // If project contains logo under `src/`, import it so Next can serve it.
 // importar ambas as variantes da logo (nomeadas conforme solicitação)
-import logoBranco from '@/Financo_branco.png';
-import logoPreto from '@/Financo_preto.png';
+import logoBranco from '@/Financo_preto.png';
+import logoPreto from '@/Financo_branco.png';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
