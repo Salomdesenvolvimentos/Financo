@@ -72,8 +72,8 @@ export default function SignUpPage() {
       });
     } else {
       toast({
-        title: 'Conta criada com sucesso!',
-        description: 'Você já pode fazer login.',
+        title: 'Conta criada! Verifique seu e-mail',
+        description: 'Enviamos um link de confirmação. Confirme seu e-mail antes de fazer login.',
         variant: 'success',
       });
       router.push('/');

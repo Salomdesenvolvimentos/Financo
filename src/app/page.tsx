@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { signIn } from '@/services/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, TrendingUp, Bot, FileUp, Wifi } from 'lucide-react';
+import { Loader2, TrendingUp, Bot, FileUp, Wifi, MailCheck } from 'lucide-react';
 import Image from 'next/image';
 import logoPreto from '@/Financo_preto.png';
 import { EmailConfirmationBanner } from '@/components/email-confirmation-banner';
@@ -45,11 +45,15 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEmailNotConfirmed(false);
     setLoading(true);
     const { error } = await signIn(formData.email, formData.password);
     if (error) {
-      // Verificar se o erro é de e-mail não confirmado
-      if (error.toLowerCase().includes('email not confirmed') || error.toLowerCase().includes('e-mail não confirmado')) {
+      const isUnconfirmed =
+        typeof error === 'string' &&
+        (error.toLowerCase().includes('email not confirmed') ||
+          error.toLowerCase().includes('email_not_confirmed'));
+      if (isUnconfirmed) {
         setEmailNotConfirmed(true);
       } else {
         toast({ title: 'Erro ao fazer login', description: error, variant: 'destructive' });
@@ -126,7 +130,6 @@ export default function LoginPage() {
             <p className="text-slate-400 text-sm">Entre na sua conta para continuar</p>
           </div>
 
-          {/* Banner de e-mail não confirmado */}
           {emailNotConfirmed && (
             <EmailConfirmationBanner email={formData.email} />
           )}

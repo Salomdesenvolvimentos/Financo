@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirme seu cadastro – Financo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: #0a0f1e;
+      font-family: 'Inter', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding: 40px 16px;
+    }
+
+    .wrapper {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.3px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: linear-gradient(145deg, #0d1730 0%, #111c3a 60%, #0f2050 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .card-top-bar {
+      height: 4px;
+      background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6);
+    }
+
+    .card-body {
+      padding: 40px 40px 36px;
+    }
+
+    .icon-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+
+    .icon-circle svg {
+      width: 28px;
+      height: 28px;
+      stroke: #60a5fa;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f1f5f9;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    /* ── Button ── */
+    .btn-wrap {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 14px 40px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #ffffff !important;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 12px;
+      letter-spacing: 0.2px;
+      box-shadow: 0 4px 24px rgba(59, 130, 246, 0.35);
+      transition: background 0.2s;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      margin: 0 0 28px;
+    }
+
+    /* ── Link fallback ── */
+    .link-fallback {
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    .link-fallback a {
+      color: #60a5fa;
+      word-break: break-all;
+      text-decoration: none;
+    }
+
+    /* ── Features ── */
+    .features {
+      display: table;
+      width: 100%;
+      margin-bottom: 32px;
+    }
+
+    .feature-row {
+      display: table-row;
+    }
+
+    .feature-cell {
+      display: table-cell;
+      width: 33.33%;
+      text-align: center;
+      padding: 0 8px;
+      vertical-align: top;
+    }
+
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    .feature-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: #60a5fa;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .feature-label {
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      margin-top: 28px;
+      font-size: 11px;
+      color: #334155;
+      line-height: 1.7;
+    }
+
+    .footer a {
+      color: #3b82f6;
+      text-decoration: none;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .card-body { padding: 28px 24px 24px; }
+      h1 { font-size: 19px; }
+      .features { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Logo -->
+    <div class="header">
+      <div class="logo-wrap">
+        <div class="logo-icon">
+          <!-- Dollar / chart icon -->
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <span class="logo-text">Financo</span>
+      </div>
+    </div>
+
+    <!-- Card -->
+    <div class="card">
+      <div class="card-top-bar"></div>
+      <div class="card-body">
+
+        <!-- Envelope icon -->
+        <div class="icon-circle">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </div>
+
+        <h1>Confirme seu cadastro</h1>
+        <p class="subtitle">
+          Você está a um clique de começar a ter controle total<br />
+          das suas finanças. Clique no botão abaixo para ativar sua conta.
+        </p>
+
+        <!-- CTA button -->
+        <div class="btn-wrap">
+          <a href="{{ .ConfirmationURL }}" class="btn">✓&nbsp; Confirmar minha conta</a>
+        </div>
+
+        <!-- Features row -->
+        <div class="features">
+          <div class="feature-row">
+            <div class="feature-cell">
+              <div class="feature-icon">
+                <!-- Chart icon -->
+                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <div class="feature-label">Gráficos em<br/>tempo real</div>
+            </div>
+            <div class="feature-cell">
+              <div class="feature-icon">
+                <!-- Bot icon -->
+                <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/><path d="M12 11V7"/><path d="M8 7h8"/></svg>
+              </div>
+              <div class="feature-label">IA integrada</div>
+            </div>
+            <div class="feature-cell">
+              <div class="feature-icon">
+                <!-- Upload icon -->
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div class="feature-label">Importação<br/>automática</div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider" />
+
+        <p class="link-fallback">
+          Botão não funcionou? Copie e cole o link abaixo no seu navegador:<br />
+          <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+        </p>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>Você recebeu este e-mail porque se cadastrou no <strong style="color:#475569">Financo</strong>.</p>
+      <p style="margin-top:4px">
+        Se não foi você, pode ignorar este e-mail com segurança.
+        Este link expira em <strong style="color:#475569">24 horas</strong>.
+      </p>
+      <p style="margin-top:12px">© 2026 Financo · Todos os direitos reservados</p>
+    </div>
+
+  </div>
+</body>
+</html>
