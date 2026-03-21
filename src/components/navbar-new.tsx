@@ -12,6 +12,7 @@ import Image from 'next/image';
 // If project contains logo under `src/`, import it so Next can serve it.
 // importar ambas as variantes da logo (nomeadas conforme solicitação)
 import logoBranco from '@/Financo_branco.png';
+import logoPreto from '@/Financo_preto.png';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -154,11 +155,11 @@ export function NavbarNew({ userName }: NavbarProps) {
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <Link href="/dashboard" className="flex items-center gap-3">
               <Image
-                src={logoBranco}
+                src={darkMode ? logoBranco : logoPreto}
                 alt="Financo"
                 width={40}
                 height={40}
-                className={`rounded-lg ${darkMode ? '' : 'invert'}`}
+                className="rounded-lg"
               />
               <span className="text-xl font-bold text-gray-900 dark:text-white">Financo</span>
             </Link>

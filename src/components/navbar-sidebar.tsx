@@ -11,6 +11,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import logoBranco from '@/Financo_branco.png';
+import logoPreto from '@/Financo_preto.png';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/auth';
 import { getMyProfile } from '@/services/social';
@@ -240,7 +241,7 @@ export function Sidebar({
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-border">
           <Link href="/dashboard" className="flex items-center gap-2.5 group" aria-label="Voltar ao Dashboard">
-            <Image src={logoBranco} alt="Financo" width={110} height={32} className={`object-contain ${darkMode ? '' : 'invert'}`} />
+            <Image src={darkMode ? logoBranco : logoPreto} alt="Financo" width={110} height={32} className="object-contain" />
           </Link>
           {isCollapsible ? (
             <button aria-label="Fechar menu" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
