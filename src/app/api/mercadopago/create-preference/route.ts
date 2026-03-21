@@ -65,35 +65,49 @@ export async function POST(req: NextRequest) {
   const client = new MercadoPagoConfig({ accessToken, options: { timeout: 8000 } });
   const preferenceClient = new Preference(client);
 
-  const result = await preferenceClient.create({
-    body: {
-      items: [
-        {
-          id: 'financo-premium-mensal',
-          title: `Financo Premium — 1 mês`,
-          description: `Acesso completo ao Financo Premium por 30 dias (R$${priceLabel}/mês)`,
-          quantity: 1,
-          unit_price: price,
-          currency_id: 'BRL',
+  try {
+    const result = await preferenceClient.create({
+      body: {
+        items: [
+          {
+            id: 'financo-premium-mensal',
+            title: `Financo Premium — 1 mês`,
+            description: `Acesso completo ao Financo Premium por 30 dias (R$${priceLabel}/mês)`,
+            quantity: 1,
+            unit_price: price,
+            currency_id: 'BRL',
+          },
+        ],
+        payer: { email },
+        back_urls: {
+          success: `${appUrl}/dashboard/subscription?mp_status=approved`,
+          failure: `${appUrl}/dashboard/subscription?mp_status=failure`,
+          pending: `${appUrl}/dashboard/subscription?mp_status=pending`,
         },
-      ],
-      payer: { email },
-      back_urls: {
-        success: `${appUrl}/dashboard/subscription?mp_status=approved`,
-        failure: `${appUrl}/dashboard/subscription?mp_status=failure`,
-        pending: `${appUrl}/dashboard/subscription?mp_status=pending`,
+        auto_return: 'approved',
+        notification_url: `${appUrl}/api/mercadopago/webhook`,
+        metadata: {
+          user_id: userId,
+          user_email: email,
+        },
+        statement_descriptor: 'FINANCO PREMIUM',
+        binary_mode: true,
       },
-      auto_return: 'approved',
-      notification_url: `${appUrl}/api/mercadopago/webhook`,
-      // Metadata para identificar o usuário no webhook
-      metadata: {
-        user_id: userId,
-        user_email: email,
-      },
-      statement_descriptor: 'FINANCO PREMIUM',
-      binary_mode: true, // Apenas aprovado ou rejeitado (sem pendente)
-    },
-  });
+    });
 
-  return NextResponse.json({ url: result.init_point });
+    if (!result.init_point) {
+      console.error('[MP] Preferência criada mas init_point ausente:', JSON.stringify(result));
+      return NextResponse.json({ error: 'Resposta inválida do Mercado Pago.' }, { status: 502 });
+    }
+
+    return NextResponse.json({ url: result.init_point });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[MP] Erro ao criar preferência:', msg);
+    // Repassa mensagem do MP para facilitar diagnóstico
+    return NextResponse.json(
+      { error: `Erro no gateway de pagamento: ${msg}` },
+      { status: 502 },
+    );
+  }
 }
