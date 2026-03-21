@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { signIn } from '@/services/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, TrendingUp, Bot, FileUp, Wifi, MailCheck } from 'lucide-react';
+import { Loader2, TrendingUp, Bot, FileUp, MailCheck } from 'lucide-react';
 import Image from 'next/image';
 import logoBranco from '@/Financo_branco.png';
 import { EmailConfirmationBanner } from '@/components/email-confirmation-banner';
@@ -23,7 +23,6 @@ const FEATURES = [
   { icon: TrendingUp, label: 'Gráficos em tempo real' },
   { icon: Bot,        label: 'IA integrada'           },
   { icon: FileUp,     label: 'Importação automática'  },
-  { icon: Wifi,       label: 'Modo offline'           },
 ];
 
 export default function LoginPage() {

@@ -238,17 +238,74 @@ export function AIChatBot() {
           className="relative group w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={{ background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)' }}
         >
-          {/* Anel pulsante */}
           <span className="absolute inset-0 rounded-full bg-blue-500/40 animate-ping" style={{ animationDuration: '2s' }} />
-          <Sparkles className="w-6 h-6 text-white relative z-10" />
-
-          {/* Badge alerta */}
-          {hasHighInsight && (
+          {isPremium
+            ? <Sparkles className="w-6 h-6 text-white relative z-10" />
+            : <Lock className="w-6 h-6 text-white relative z-10" />
+          }
+          {isPremium && hasHighInsight && (
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-[#0a0f1e] flex items-center justify-center">
               <span className="w-1.5 h-1.5 bg-white rounded-full" />
             </span>
           )}
         </button>
+      </div>
+    );
+  }
+
+  // Upsell para usuários free
+  if (!isPremium) {
+    return (
+      <div
+        className="fixed bottom-6 right-5 z-50 flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+        style={{ width: '26rem', maxWidth: 'calc(100vw - 1.5rem)', background: '#0e1525' }}
+      >
+        <div
+          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+          style={{ background: 'linear-gradient(90deg, #1e3a8a 0%, #312e81 100%)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-sm font-semibold text-white">Financo AI</p>
+          </div>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Fechar"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex flex-col items-center gap-5 px-6 py-8 text-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}>
+            <Crown className="w-8 h-8 text-white" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-white font-semibold text-base">Recurso exclusivo Premium</p>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              O Financo AI está disponível apenas para assinantes Premium. Assine agora e tenha análises financeiras inteligentes ao seu alcance.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/subscription"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}
+            onClick={() => setIsOpen(false)}
+          >
+            <Crown className="w-4 h-4" />
+            Assinar Premium
+          </Link>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="text-xs text-slate-500 hover:text-slate-400 transition-colors"
+          >
+            Agora não
+          </button>
+        </div>
       </div>
     );
   }
