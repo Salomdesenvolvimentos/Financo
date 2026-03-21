@@ -10,7 +10,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import logoBranco from '@/Financo_branco.png';
-import logoPreto from '@/Financo_preto.png';
 import { signOut } from '@/services/auth';
 import { getMyProfile } from '@/services/social';
 import { useToast } from '@/hooks/use-toast';
@@ -180,7 +179,7 @@ export function NavbarTop({
                 {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
               <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="Voltar ao Dashboard">
-                <Image src={darkMode ? logoBranco : logoPreto} alt="Financo" width={120} height={36} className="object-contain" />
+                <Image src={logoBranco} alt="Financo" width={120} height={36} className={`object-contain ${darkMode ? '' : 'invert'}`} />
               </Link>
             </div>
 
