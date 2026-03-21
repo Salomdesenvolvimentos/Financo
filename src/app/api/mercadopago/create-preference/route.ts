@@ -102,11 +102,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: result.init_point });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('[MP] Erro ao criar preferência:', msg);
-    // Repassa mensagem do MP para facilitar diagnóstico
+    // O SDK do MP lança objetos customizados — serializar tudo para diagnóstico
+    let detail: string;
+    try {
+      detail = JSON.stringify(err, Object.getOwnPropertyNames(err));
+    } catch {
+      detail = String(err);
+    }
+    console.error('[MP] Erro ao criar preferência:', detail);
     return NextResponse.json(
-      { error: `Erro no gateway de pagamento: ${msg}` },
+      { error: 'Erro no gateway de pagamento.', detail },
       { status: 502 },
     );
   }

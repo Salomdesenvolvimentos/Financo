@@ -94,7 +94,10 @@ export default function SubscriptionPage() {
 
       const json = await res.json();
       if (!res.ok || !json.url) {
-        throw new Error(json.error ?? 'Erro ao iniciar pagamento');
+        const errMsg = json.detail
+          ? `${json.error ?? 'Erro'} — ${json.detail}`
+          : (json.error ?? 'Erro ao iniciar pagamento');
+        throw new Error(errMsg);
       }
       // Redirecionar para o checkout do Mercado Pago
       window.location.href = json.url;
