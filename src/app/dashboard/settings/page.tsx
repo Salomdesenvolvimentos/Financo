@@ -143,6 +143,8 @@ export default function SettingsPageNew() {
         setProfileImage(compressed);
         // Salvar no Supabase como backup — recuperado automaticamente se cache for limpo
         upsertProfile(user.id, { avatar_url: compressed }).catch(() => {});
+        // Notificar navbars para atualizar foto em tempo real
+        window.dispatchEvent(new CustomEvent('financo:profile-image-updated', { detail: { userId: user.id, imageUrl: compressed } }));
         setUploadingImage(false);
         toast({ title: 'Foto atualizada', description: 'Sua foto de perfil foi atualizada com sucesso.' });
       };
@@ -151,6 +153,8 @@ export default function SettingsPageNew() {
         localStorage.setItem(`profile-image-${user.id}`, originalDataUrl);
         setProfileImage(originalDataUrl);
         upsertProfile(user.id, { avatar_url: originalDataUrl }).catch(() => {});
+        // Notificar navbars para atualizar foto em tempo real
+        window.dispatchEvent(new CustomEvent('financo:profile-image-updated', { detail: { userId: user.id, imageUrl: originalDataUrl } }));
         setUploadingImage(false);
         toast({ title: 'Foto atualizada', description: 'Sua foto de perfil foi atualizada com sucesso.' });
       };

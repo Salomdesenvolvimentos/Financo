@@ -39,8 +39,14 @@ export default function DashboardLayoutNew({
         document.documentElement.classList.add('dark');
         return true;
       }
+      if (saved === 'light') {
+        document.documentElement.classList.remove('dark');
+        return false;
+      }
+      // No preference saved — respect current HTML class (root layout defaults to dark)
+      return document.documentElement.classList.contains('dark');
     }
-    return false;
+    return true;
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navbarHidden, setNavbarHidden] = useState(false);

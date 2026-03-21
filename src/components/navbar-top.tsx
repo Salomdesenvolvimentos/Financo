@@ -12,13 +12,13 @@ import Image from 'next/image';
 import logoBranco from '@/Financo_branco.png';
 import logoPreto from '@/Financo_preto.png';
 import { signOut } from '@/services/auth';
+import { getMyProfile } from '@/services/social';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import {
   DollarSign,
   LayoutDashboard,
   Receipt,
-  Upload,
   Settings,
   LogOut,
   Menu,
@@ -78,7 +78,6 @@ const navEntries: NavEntry[] = [
     },
   },
   { type: 'item', data: { icon: Users,    label: 'Social',        href: '/dashboard/social'   } },
-  { type: 'item', data: { icon: Upload,   label: 'Importar',      href: '/dashboard/import'   } },
   { type: 'item', data: { icon: Settings, label: 'Configurações', href: '/dashboard/settings' } },
 ];
 
@@ -102,12 +101,33 @@ export function NavbarTop({
   const [mobileExpandedGroup, setMobileExpandedGroup] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Carregar foto de perfil
+  // Carregar foto de perfil (localStorage + fallback Supabase para sincronizar entre dispositivos)
   useEffect(() => {
     if (user?.id) {
       const savedImage = localStorage.getItem(`profile-image-${user.id}`);
-      if (savedImage) setProfileImage(savedImage);
+      if (savedImage) {
+        setProfileImage(savedImage);
+      } else {
+        getMyProfile(user.id).then(profile => {
+          if (profile?.avatar_url) {
+            localStorage.setItem(`profile-image-${user.id}`, profile.avatar_url);
+            setProfileImage(profile.avatar_url);
+          }
+        }).catch(() => {});
+      }
     }
+  }, [user]);
+
+  // Ouvir evento de atualização de foto para sincronizar em tempo real
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.userId === user?.id && detail?.imageUrl) {
+        setProfileImage(detail.imageUrl);
+      }
+    };
+    window.addEventListener('financo:profile-image-updated', handler);
+    return () => window.removeEventListener('financo:profile-image-updated', handler);
   }, [user]);
 
   // Fechar dropdown ao clicar fora
@@ -160,7 +180,7 @@ export function NavbarTop({
                 {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
               <Link href="/dashboard" className="flex items-center gap-2.5" aria-label="Voltar ao Dashboard">
-                <Image src={darkMode ? logoPreto : logoBranco} alt="Financo" width={120} height={36} className="object-contain" />
+                <Image src={darkMode ? logoBranco : logoPreto} alt="Financo" width={120} height={36} className="object-contain" />
               </Link>
             </div>
 

@@ -5,11 +5,14 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { apiUrl } from '@/lib/api-url';
+import { parsePDF, validateTransactions } from '@/services/pdf-parser';
+import { parseCSVSmart } from '@/services/csv-parser';
+import { suggestCategory, saveLearnedRule } from '@/services/categorization';
+import * as XLSX from 'xlsx';
 import {
   Card,
   CardContent,
@@ -20,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -67,6 +71,12 @@ import {
   Pencil,
   Filter,
   RotateCcw,
+  Upload,
+  FileText,
+  FileSpreadsheet,
+  QrCode,
+  ScanLine,
+  ArrowLeft,
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -95,10 +105,19 @@ export default function TransactionsPage() {
   const [categoryEditModalOpen, setCategoryEditModalOpen] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
-  // Cartões de crédito vindos do Pluggy (Open Finance)
-  const [pluggyCreditCards, setPluggyCreditCards] = useState<any[]>([]);
+  // Cartões de crédito locais (marcados como is_fatura)
   // Controla visibilidade dos filtros no mobile
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Estado do modal de importação
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importMode, setImportMode] = useState<'select' | 'file' | 'nfe'>('select');
+  const [importFileType, setImportFileType] = useState<'pdf' | 'csv' | 'excel'>('pdf');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importUploading, setImportUploading] = useState(false);
+  const [nfeText, setNfeText] = useState('');
+  const [nfeProcessing, setNfeProcessing] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formData, setFormData] = useState<TransactionFormData>({
@@ -153,19 +172,7 @@ export default function TransactionsPage() {
     loadData();
   }, [user, filters]);
 
-  // Buscar contas de crédito do Pluggy (Open Finance) para exibir faturas em tempo real
-  useEffect(() => {
-    const itemId = typeof window !== 'undefined' ? localStorage.getItem('pluggy_item_id') : null;
-    if (!itemId) return;
-    (async () => {
-      try {
-        const res = await fetch(apiUrl(`/api/pluggy/accounts?itemId=${itemId}`));
-        const data = await res.json();
-        const accounts: any[] = data.results ?? data.accounts ?? [];
-        setPluggyCreditCards(accounts.filter((a: any) => a.type === 'CREDIT'));
-      } catch {}
-    })();
-  }, []);
+  // Buscar contas de crédito: removido (Open Finance descontinuado)
 
   // keep editingValue in sync when we start editing a cell
   useEffect(() => {
@@ -442,6 +449,178 @@ export default function TransactionsPage() {
       : true
   );
 
+  // ── Import helpers ─────────────────────────────────────────────────────────
+  const parseCSVRows = (text: string): any[] => {
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const sep = lines[0].includes(';') ? ';' : ',';
+    const headers = lines[0].split(sep).map(h => h.trim().replace(/"/g, '').toLowerCase());
+    return lines.slice(1).map(line => {
+      const vals = line.split(sep);
+      const obj: any = {};
+      headers.forEach((h, i) => { obj[h] = vals[i]?.trim().replace(/"/g, '') || ''; });
+      return obj;
+    });
+  };
+
+  const parseXLSXRows = async (f: File): Promise<any[]> => {
+    const buffer = await f.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as any[][];
+    if (rows.length < 2) return [];
+    const headers = (rows[0] as string[]).map(h => String(h).trim().toLowerCase());
+    return rows.slice(1).map(row => {
+      const obj: any = {};
+      headers.forEach((h, i) => { obj[h] = row[i] !== undefined ? String(row[i]).trim() : ''; });
+      return obj;
+    }).filter(r => Object.values(r).some(v => v !== ''));
+  };
+
+  const findImportCategory = (description: string, tipo: string): string => {
+    const desc = description.toLowerCase();
+    const keywords: Record<string, string[]> = {
+      'alimentação': ['mercado', 'supermercado', 'restaurante', 'lanche', 'ifood', 'padaria'],
+      'transporte': ['uber', 'taxi', '99', 'gasolina', 'combustível', 'estacionamento'],
+      'moradia': ['aluguel', 'condomínio', 'água', 'luz', 'energia', 'internet'],
+      'lazer': ['cinema', 'netflix', 'spotify', 'jogo', 'parque'],
+    };
+    for (const category of categories) {
+      const catName = category.nome.toLowerCase();
+      if (keywords[catName]) {
+        for (const kw of keywords[catName]) {
+          if (desc.includes(kw)) return category.id;
+        }
+      }
+    }
+    return categories.find(c => c.tipo === tipo)?.id || '';
+  };
+
+  const handleImportFile = async () => {
+    if (!importFile || !user) return;
+    setImportUploading(true);
+    try {
+      let parsedData: any[] = [];
+      if (importFile.type === 'application/pdf' || importFile.name.endsWith('.pdf')) {
+        toast({ title: 'Processando PDF...', description: 'Extraindo transações do arquivo' });
+        const txs = await parsePDF(importFile);
+        const valid = validateTransactions(txs);
+        if (valid.length === 0) {
+          toast({ title: 'Nenhuma transação encontrada', description: 'Não foi possível extrair transações do PDF', variant: 'destructive' });
+          setImportUploading(false);
+          return;
+        }
+        parsedData = valid.map(t => ({ data: t.data, descricao: t.descricao, valor: t.valor, tipo: t.tipo, forma_pagamento: t.forma_pagamento || '' }));
+      } else if (importFile.name.match(/\.xlsx?$/i) || importFile.type.includes('spreadsheet') || importFile.type.includes('excel')) {
+        toast({ title: 'Processando planilha...', description: 'Extraindo transações do Excel' });
+        parsedData = await parseXLSXRows(importFile);
+      } else {
+        const text = await importFile.text();
+        const smart = parseCSVSmart(text);
+        parsedData = smart.length > 0 ? smart : parseCSVRows(text);
+      }
+      if (parsedData.length === 0) {
+        toast({ title: 'Arquivo vazio', description: 'Nenhum dado válido encontrado', variant: 'destructive' });
+        setImportUploading(false);
+        return;
+      }
+      // Deduplicação
+      const allDates = parsedData.map((r: any) => r['data'] || r['date'] || '').filter(Boolean).map((d: string) => {
+        if (d.match(/^\d{4}-\d{2}-\d{2}$/)) return d;
+        if (d.includes('/')) { const [dd, mm, yy] = d.split('/'); return `${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`; }
+        return '';
+      }).filter(Boolean).sort();
+      const existingSet = new Set<string>();
+      if (allDates.length > 0) {
+        const { data: existing } = await getTransactions({ data_inicio: allDates[0], data_fim: allDates[allDates.length - 1] });
+        for (const tx of existing ?? []) existingSet.add(`${tx.data_transacao}|${Math.round(tx.valor * 100)}|${tx.descricao.toLowerCase().slice(0, 40)}`);
+      }
+      let imported = 0, skipped = 0;
+      for (const row of parsedData) {
+        const date = row['data'] || row['date'] || row['data transação'] || '';
+        const description = row['descricao'] || row['descrição'] || row['description'] || row['historic'] || row['historico'] || '';
+        const amount = row['valor'] || row['amount'] || row['value'] || '0';
+        if (!date || !description) continue;
+        const numericAmount = typeof amount === 'number'
+          ? Math.abs(amount)
+          : Math.abs(parseFloat(amount.toString().replace('R$','').replace(/\./g,'').replace(',','.').trim()) || 0);
+        if (!numericAmount) continue;
+        const tipo = row.tipo || (amount.toString().includes('-') || amount.toString().startsWith('(') ? 'despesa' : 'receita');
+        let dateISO: string;
+        if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          dateISO = date;
+        } else {
+          try {
+            if (date.includes('/')) { const [d, m, y] = date.split('/'); dateISO = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+            else dateISO = formatDateISO(new Date());
+          } catch { dateISO = formatDateISO(new Date()); }
+        }
+        const fp = `${dateISO}|${Math.round(numericAmount * 100)}|${description.toLowerCase().slice(0, 40)}`;
+        if (existingSet.has(fp)) { skipped++; continue; }
+        existingSet.add(fp);
+        const catId = (await suggestCategory(user.id, description, tipo, categories)) || findImportCategory(description, tipo);
+        await createTransaction({
+          descricao: description.substring(0, 100), tipo, categoria_id: catId, valor: numericAmount,
+          data_transacao: dateISO, responsavel: user.nome || user.email, status: 'pago',
+          parcelado: false, total_parcelas: 1, forma_pagamento: row['forma_pagamento'] || undefined,
+          modalidade_pagamento: row['forma_pagamento']?.toLowerCase().includes('cred') ? 'credito' : row['forma_pagamento'] ? 'a_vista' : undefined,
+        });
+        if (catId) await saveLearnedRule(user.id, description, catId, tipo);
+        imported++;
+      }
+      const skipMsg = skipped > 0 ? ` (${skipped} duplicata${skipped > 1 ? 's' : ''} ignorada${skipped > 1 ? 's' : ''})` : '';
+      toast({ title: `${imported} transações importadas!`, description: `Categorização automática aplicada${skipMsg}` });
+      setImportModalOpen(false);
+      setImportFile(null);
+      setImportMode('select');
+      const { data: refreshed } = await getTransactions(filters);
+      if (refreshed) setTransactions(refreshed);
+    } catch (err: any) {
+      toast({ title: 'Erro ao importar', description: err.message || 'Verifique o formato do arquivo', variant: 'destructive' });
+    } finally {
+      setImportUploading(false);
+    }
+  };
+
+  const handleImportNFe = async () => {
+    if (!nfeText.trim() || !user) return;
+    setNfeProcessing(true);
+    try {
+      const alimentacaoKw = ['leite','pão','arroz','feijão','frango','carne','biscoito','iogurte','queijo','suco','refrigerante','água','cerveja','café','açúcar','macarrão','atum','sardinha','farinha','oleo','óleo','manteiga'];
+      const limpezaKw = ['detergente','sabão','sabonete','shampoo','condicionador','desinfetante','alvejante','esponja','papel higiênico','papel toalha','fralda'];
+      const higKw = ['creme dental','fio dental','desodorante','absorvente','barbear','escova'];
+      const lines = nfeText.split('\n').filter(l => l.trim());
+      let imported = 0;
+      for (const line of lines) {
+        const lower = line.toLowerCase();
+        let catNome = 'Compras';
+        if (alimentacaoKw.some(k => lower.includes(k))) catNome = 'Alimentação';
+        else if (limpezaKw.some(k => lower.includes(k))) catNome = 'Limpeza';
+        else if (higKw.some(k => lower.includes(k))) catNome = 'Higiene';
+        const m = line.match(/R?\$?\s*([\d.,]+)/);
+        const valor = m ? Math.abs(parseFloat(m[1].replace(',','.'))) : 0;
+        if (!valor) continue;
+        const catId = categories.find(c => c.nome.toLowerCase().includes(catNome.toLowerCase()))?.id || '';
+        await createTransaction({ descricao: line.substring(0, 80), tipo: 'despesa', categoria_id: catId, valor, data_transacao: formatDateISO(new Date()), responsavel: user.nome || user.email, status: 'pago', parcelado: false, total_parcelas: 1 });
+        imported++;
+      }
+      if (imported === 0) {
+        toast({ title: 'Nenhum item identificado', description: 'Cole o texto completo da NF-e ou a URL do QR Code', variant: 'destructive' });
+      } else {
+        toast({ title: `${imported} itens importados da NF-e!` });
+        setNfeText('');
+        setImportModalOpen(false);
+        setImportMode('select');
+        const { data: refreshed } = await getTransactions(filters);
+        if (refreshed) setTransactions(refreshed);
+      }
+    } catch { toast({ title: 'Erro ao processar NF-e', variant: 'destructive' }); }
+    finally { setNfeProcessing(false); }
+  };
+  // ── Fim import helpers ─────────────────────────────────────────────────────
+
+
+
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -471,54 +650,7 @@ export default function TransactionsPage() {
           parcelasPorCartao.set(card, { count: prev.count + 1, total: prev.total + Number(t.valor) });
         });
 
-        // ── Fonte primária: contas de crédito do Pluggy (Open Finance) ──
-        if (pluggyCreditCards.length > 0) {
-          const totalFatura = pluggyCreditCards.reduce(
-            (sum, a) => sum + Math.abs(Number(a.balance ?? 0)),
-            0
-          );
-          return (
-            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">Faturas de Cartão</span>
-                  <span className="text-xs text-amber-500 dark:text-amber-400 font-normal">· Open Finance</span>
-                </div>
-                <span className="text-lg font-bold text-amber-900 dark:text-amber-100">{formatCurrency(totalFatura)}</span>
-              </div>
-              <div className="mt-2 space-y-1.5 border-t border-amber-200 dark:border-amber-700 pt-2">
-                {pluggyCreditCards.map((card) => {
-                  const fatura = Math.abs(Number(card.balance ?? 0));
-                  const dueDate = card.creditData?.balanceDueDate
-                    ? new Date(card.creditData.balanceDueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-                    : null;
-                  const parcelas = parcelasPorCartao.get(card.name);
-                  return (
-                    <div key={card.id} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-amber-700 dark:text-amber-300">{card.name}</span>
-                        {parcelas && parcelas.count > 0 && (
-                          <span className="text-xs text-muted-foreground bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
-                            +{parcelas.count} parcela{parcelas.count > 1 ? 's' : ''} futura{parcelas.count > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {dueDate && (
-                          <span className="text-xs text-muted-foreground">vence {dueDate}</span>
-                        )}
-                        <span className="font-semibold text-amber-800 dark:text-amber-200">{formatCurrency(fatura)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // ── Fallback: transações marcadas como is_fatura (agrupadas por cartão) ──
+        // Transações marcadas como is_fatura (agrupadas por cartão)
         const faturas = transactions.filter((t) => t.is_fatura);
         if (faturas.length === 0 && parcelasFuturas.length === 0) return null;
         const totalFaturaLocal = faturas.reduce((s, t) => s + Number(t.valor), 0);
@@ -558,11 +690,6 @@ export default function TransactionsPage() {
                 })}
               </div>
             )}
-            {faturas.length === 0 && parcelasFuturas.length > 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                Conecte seu banco via Open Finance (Importação) para ver faturas em tempo real.
-              </p>
-            )}
             {faturas.length > 0 && (
               <p className="text-xs text-muted-foreground mt-2">
                 Use o botão <CreditCard className="inline h-3 w-3 mx-0.5" /> em cada linha para marcar/desmarcar faturas.
@@ -586,6 +713,16 @@ export default function TransactionsPage() {
           <Button onClick={handleNewTransaction} size="sm" className="gap-1 flex-shrink-0">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Nova</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setImportModalOpen(true); setImportMode('select'); setImportFile(null); }}
+            className="gap-1 flex-shrink-0"
+            title="Importar transações"
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar</span>
           </Button>
           <Button
             variant="outline"
@@ -1640,6 +1777,149 @@ export default function TransactionsPage() {
           if (user) getCategories(user.id).then(r => { if (r.data) setCategories(r.data); });
         }}
       />
+
+      {/* Modal de Importação */}
+      <Dialog open={importModalOpen} onOpenChange={(open) => { setImportModalOpen(open); if (!open) { setImportMode('select'); setImportFile(null); setNfeText(''); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {importMode !== 'select' && (
+                <button onClick={() => { setImportMode('select'); setImportFile(null); }} className="p-1 rounded hover:bg-muted mr-1">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              )}
+              <Upload className="h-5 w-5 text-primary" />
+              Importar Transações
+            </DialogTitle>
+            <DialogDescription>
+              {importMode === 'select' && 'Escolha o formato do arquivo para importar'}
+              {importMode === 'file' && `Selecione um arquivo ${importFileType.toUpperCase()} para importar`}
+              {importMode === 'nfe' && 'Cole o conteúdo do QR Code da Nota Fiscal'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Seleção de modo */}
+          {importMode === 'select' && (
+            <div className="grid grid-cols-2 gap-3 py-2">
+              <button
+                onClick={() => { setImportFileType('pdf'); setImportMode('file'); }}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition-all group"
+              >
+                <FileText className="h-8 w-8 text-red-500 group-hover:scale-110 transition-transform" />
+                <div className="text-center">
+                  <p className="font-semibold text-sm">Extrato PDF</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">PDF do banco ou extrato</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { setImportFileType('csv'); setImportMode('file'); }}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition-all group"
+              >
+                <FileText className="h-8 w-8 text-green-600 group-hover:scale-110 transition-transform" />
+                <div className="text-center">
+                  <p className="font-semibold text-sm">Arquivo CSV</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Exportação do banco</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { setImportFileType('excel'); setImportMode('file'); }}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition-all group"
+              >
+                <FileSpreadsheet className="h-8 w-8 text-emerald-600 group-hover:scale-110 transition-transform" />
+                <div className="text-center">
+                  <p className="font-semibold text-sm">Excel (.xlsx)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Planilha Excel</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setImportMode('nfe')}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-border hover:border-primary/60 hover:bg-primary/5 transition-all group"
+              >
+                <QrCode className="h-8 w-8 text-blue-500 group-hover:scale-110 transition-transform" />
+                <div className="text-center">
+                  <p className="font-semibold text-sm">Nota Fiscal (NF-e)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">QR Code do cupom fiscal</p>
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Upload de arquivo (PDF / CSV / Excel) */}
+          {importMode === 'file' && (
+            <div className="space-y-4 py-2">
+              <input
+                ref={importFileRef}
+                type="file"
+                accept={importFileType === 'pdf' ? '.pdf' : importFileType === 'csv' ? '.csv' : '.xls,.xlsx'}
+                className="hidden"
+                onChange={(e) => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }}
+              />
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+                onClick={() => importFileRef.current?.click()}
+              >
+                {importFile ? (
+                  <div className="space-y-1">
+                    <FileText className="h-8 w-8 mx-auto text-primary" />
+                    <p className="text-sm font-medium">{importFile.name}</p>
+                    <p className="text-xs text-muted-foreground">{(importFile.size / 1024).toFixed(1)} KB</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+                    <p className="text-sm font-medium">Clique para selecionar o arquivo</p>
+                    <p className="text-xs text-muted-foreground">
+                      {importFileType === 'pdf' ? 'Arquivos .PDF' : importFileType === 'csv' ? 'Arquivos .CSV' : 'Arquivos .XLS ou .XLSX'}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <Button
+                className="w-full gap-2"
+                disabled={!importFile || importUploading}
+                onClick={handleImportFile}
+              >
+                {importUploading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Importando...</>
+                ) : (
+                  <><Upload className="h-4 w-4" />Importar {importFileType.toUpperCase()}</>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* NF-e */}
+          {importMode === 'nfe' && (
+            <div className="space-y-4 py-2">
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <p className="font-semibold">Como usar:</p>
+                <p>1. Abra o app da câmera ou um leitor de QR Code</p>
+                <p>2. Escaneie o QR Code da nota fiscal (cupom fiscal / NF-e)</p>
+                <p>3. Copie a URL ou texto gerado e cole abaixo</p>
+              </div>
+              <Textarea
+                placeholder="Cole aqui a URL do QR Code da NF-e ou o texto da nota..."
+                className="min-h-[120px] font-mono text-sm"
+                value={nfeText}
+                onChange={(e) => setNfeText(e.target.value)}
+                disabled={nfeProcessing}
+              />
+              <Button
+                className="w-full gap-2"
+                disabled={!nfeText.trim() || nfeProcessing}
+                onClick={handleImportNFe}
+              >
+                {nfeProcessing ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Processando NF-e...</>
+                ) : (
+                  <><ScanLine className="h-4 w-4" />Importar NF-e</>
+                )}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

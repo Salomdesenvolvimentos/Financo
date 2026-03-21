@@ -14,6 +14,7 @@ import logoBranco from '@/Financo_branco.png';
 import logoPreto from '@/Financo_preto.png';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/services/auth';
+import { getMyProfile } from '@/services/social';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { usePlan } from '@/hooks/use-plan';
@@ -21,7 +22,6 @@ import {
   DollarSign,
   LayoutDashboard,
   Receipt,
-  Upload,
   Settings,
   LogOut,
   X,
@@ -105,7 +105,6 @@ export function Sidebar({
       },
     },
     { type: 'item', data: { icon: Users,    label: 'Social',        href: '/dashboard/social'   } },
-    { type: 'item', data: { icon: Upload,   label: 'Importar',      href: '/dashboard/import'   } },
     { type: 'item', data: { icon: Settings, label: 'Configurações', href: '/dashboard/settings' } },
   ];
 
@@ -170,13 +169,35 @@ export function Sidebar({
     hoverTimeout.current = setTimeout(() => setHoveredGroup(null), 120);
   };
 
-  // Carregar foto de perfil
+  // Carregar foto de perfil (localStorage + fallback Supabase para sincronizar entre dispositivos)
   useEffect(() => {
     if (user?.id) {
       const savedImage = localStorage.getItem(`profile-image-${user.id}`);
-      if (savedImage) setProfileImage(savedImage);
+      if (savedImage) {
+        setProfileImage(savedImage);
+      } else {
+        getMyProfile(user.id).then(profile => {
+          if (profile?.avatar_url) {
+            localStorage.setItem(`profile-image-${user.id}`, profile.avatar_url);
+            setProfileImage(profile.avatar_url);
+          }
+        }).catch(() => {});
+      }
     }
   }, [user]);
+
+  // Ouvir evento de atualização de foto para sincronizar em tempo real
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.userId === user?.id && detail?.imageUrl) {
+        setProfileImage(detail.imageUrl);
+      }
+    };
+    window.addEventListener('financo:profile-image-updated', handler);
+    return () => window.removeEventListener('financo:profile-image-updated', handler);
+  }, [user]);
+
 
   const handleSignOut = async () => {
     try {
@@ -220,7 +241,7 @@ export function Sidebar({
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-border">
           <Link href="/dashboard" className="flex items-center gap-2.5 group" aria-label="Voltar ao Dashboard">
-            <Image src={darkMode ? logoPreto : logoBranco} alt="Financo" width={110} height={32} className="object-contain" />
+            <Image src={darkMode ? logoBranco : logoPreto} alt="Financo" width={110} height={32} className="object-contain" />
           </Link>
           {isCollapsible ? (
             <button aria-label="Fechar menu" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
