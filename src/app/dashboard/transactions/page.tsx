@@ -1854,6 +1854,15 @@ export default function TransactionsPage() {
                 className="hidden"
                 onChange={(e) => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }}
               />
+              {importFileType === 'pdf' && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 text-xs text-amber-800 dark:text-amber-200">
+                  <span className="text-base leading-none mt-0.5">⚠️</span>
+                  <div>
+                    <p className="font-semibold">Bancos compatíveis com importação em PDF</p>
+                    <p className="mt-0.5">Atualmente apenas os bancos <span className="font-semibold">Santander</span> e <span className="font-semibold">Nubank</span> são suportados. Para outros bancos, use o formato <span className="font-semibold">CSV</span> ou <span className="font-semibold">Excel</span>.</p>
+                  </div>
+                </div>
+              )}
               <div
                 className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
                 onClick={() => importFileRef.current?.click()}
