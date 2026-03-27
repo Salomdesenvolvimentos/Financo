@@ -77,6 +77,8 @@ import {
   QrCode,
   ScanLine,
   ArrowLeft,
+  Camera,
+  X as XIcon,
 } from 'lucide-react';
 
 export default function TransactionsPage() {
@@ -118,6 +120,53 @@ export default function TransactionsPage() {
   const [nfeText, setNfeText] = useState('');
   const [nfeProcessing, setNfeProcessing] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
+  // Camera QR scanner state
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scanStreamRef = useRef<MediaStream | null>(null);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCameraQR = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({ title: 'Câmera não suportada neste dispositivo', variant: 'destructive' });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      scanStreamRef.current = stream;
+      setCameraActive(true);
+      // Attach stream to video after React renders the element
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      }, 120);
+      // Use BarcodeDetector if available (Chromium / Android WebView)
+      if ('BarcodeDetector' in window) {
+        const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+        scanIntervalRef.current = setInterval(async () => {
+          if (!videoRef.current) return;
+          try {
+            const codes = await detector.detect(videoRef.current);
+            if (codes.length > 0) {
+              setNfeText(codes[0].rawValue);
+              stopCameraQR();
+              toast({ title: '✅ QR Code detectado! Clique em Importar NF-e.' });
+            }
+          } catch {}
+        }, 600);
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao acessar câmera', description: 'Conceda permissão de câmera ao aplicativo.', variant: 'destructive' });
+    }
+  };
+
+  const stopCameraQR = () => {
+    if (scanIntervalRef.current) { clearInterval(scanIntervalRef.current); scanIntervalRef.current = null; }
+    if (scanStreamRef.current) { scanStreamRef.current.getTracks().forEach(t => t.stop()); scanStreamRef.current = null; }
+    setCameraActive(false);
+  };
 
   // Form state
   const [formData, setFormData] = useState<TransactionFormData>({
@@ -200,6 +249,11 @@ export default function TransactionsPage() {
       const orig = transactions.find((t) => t.id === id);
       if (orig) Object.assign(newObj, orig);
       delete newObj.id;
+      // Remove campos que não são colunas reais da tabela (joins, auto-gerados)
+      delete newObj.categoria;
+      delete newObj.numero;
+      delete newObj.created_at;
+      delete newObj.updated_at;
 
       const { data, error } = await createTransaction(newObj as any);
       if (error) {
@@ -362,6 +416,12 @@ export default function TransactionsPage() {
 
   // Deletar transação
   const handleDeleteTransaction = async (id: string) => {
+    // Linha temporária ainda não salva — apenas remove do estado local
+    if (id.startsWith('new-')) {
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
+      return;
+    }
+
     if (!confirm('Tem certeza que deseja excluir esta transação?')) return;
 
     setLoading(true);
@@ -1779,7 +1839,7 @@ export default function TransactionsPage() {
       />
 
       {/* Modal de Importação */}
-      <Dialog open={importModalOpen} onOpenChange={(open) => { setImportModalOpen(open); if (!open) { setImportMode('select'); setImportFile(null); setNfeText(''); } }}>
+      <Dialog open={importModalOpen} onOpenChange={(open) => { setImportModalOpen(open); if (!open) { setImportMode('select'); setImportFile(null); setNfeText(''); stopCameraQR(); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1902,13 +1962,50 @@ export default function TransactionsPage() {
             <div className="space-y-4 py-2">
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300 space-y-1">
                 <p className="font-semibold">Como usar:</p>
-                <p>1. Abra o app da câmera ou um leitor de QR Code</p>
-                <p>2. Escaneie o QR Code da nota fiscal (cupom fiscal / NF-e)</p>
-                <p>3. Copie a URL ou texto gerado e cole abaixo</p>
+                <p>Clique em <strong>Escanear com Câmera</strong> e aponte para o QR Code do cupom fiscal. O app detectará automaticamente e preencherá o campo abaixo.</p>
               </div>
+
+              {/* Camera scanner */}
+              {!cameraActive ? (
+                <button
+                  onClick={startCameraQR}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 transition-all text-sm font-medium text-primary"
+                >
+                  <Camera className="h-5 w-5" />
+                  Escanear com Câmera
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                    <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+                    {/* QR finder overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="border-2 border-white/80 rounded-lg w-40 h-40" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)' }} />
+                    </div>
+                    <p className="absolute bottom-2 left-0 right-0 text-center text-white text-xs opacity-80">
+                      {'BarcodeDetector' in window ? 'Aponte para o QR Code...' : 'Escaneie e cole a URL abaixo'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={stopCameraQR}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted text-sm text-muted-foreground"
+                  >
+                    <XIcon className="h-4 w-4" />
+                    Fechar câmera
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex-1 border-t border-border" />
+                <span>ou cole o texto manualmente</span>
+                <div className="flex-1 border-t border-border" />
+              </div>
+
               <Textarea
                 placeholder="Cole aqui a URL do QR Code da NF-e ou o texto da nota..."
-                className="min-h-[120px] font-mono text-sm"
+                className="min-h-[100px] font-mono text-sm"
                 value={nfeText}
                 onChange={(e) => setNfeText(e.target.value)}
                 disabled={nfeProcessing}

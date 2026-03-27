@@ -82,12 +82,12 @@ type CardLayout = {
 
 const LAYOUT_KEY = 'financo_dashboard_layout';
 const DEFAULT_CARD_LAYOUTS: CardLayout[] = [
-  { id: 'health',     label: 'Saúde Financeira',       colSpan: 2, height: 'auto', order: 0 },
-  { id: 'forecast',   label: 'Previsão Financeira',     colSpan: 2, height: 'auto', order: 1 },
-  { id: 'categories', label: 'Despesas por Categoria',  colSpan: 2, height: 'auto', order: 2 },
-  { id: 'trend',      label: 'Tendência 6 Meses',       colSpan: 2, height: 'auto', order: 3 },
-  { id: 'daily',      label: 'Gastos por Dia',          colSpan: 4, height: 'auto', order: 4 },
-  { id: 'faturas',    label: 'Faturas de Cartão',       colSpan: 4, height: 'auto', order: 5 },
+  { id: 'categories', label: 'Despesas por Categoria',  colSpan: 1, height: 'auto', order: 0 },
+  { id: 'daily',      label: 'Gastos por Dia',          colSpan: 2, height: 'auto', order: 1 },
+  { id: 'faturas',    label: 'Faturas de Cartão',       colSpan: 1, height: 'auto', order: 2 },
+  { id: 'forecast',   label: 'Previsão Financeira',     colSpan: 1, height: 'auto', order: 3 },
+  { id: 'trend',      label: 'Tendência 6 Meses',       colSpan: 2, height: 'auto', order: 4 },
+  { id: 'health',     label: 'Saúde Financeira',        colSpan: 1, height: 'auto', order: 5 },
 ];
 const COL_SPAN_MAP: Record<number, string> = {
   1: 'col-span-4 lg:col-span-1',
@@ -675,6 +675,11 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-success">
               {formatCurrency(summary.receita_total)}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {summary.contas_pendentes > 0
+                ? `${summary.contas_pendentes} receita${summary.contas_pendentes > 1 ? 's' : ''} pendente${summary.contas_pendentes > 1 ? 's' : ''}`
+                : 'Todas as receitas recebidas'}
+            </p>
           </CardContent>
         </Card>
 
@@ -688,6 +693,11 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-danger">
               {formatCurrency(summary.despesa_total)}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {summary.contas_vencidas > 0
+                ? `⚠️ ${summary.contas_vencidas} vencida${summary.contas_vencidas > 1 ? 's' : ''}`
+                : 'Sem contas vencidas'}
+            </p>
           </CardContent>
         </Card>
 
@@ -963,26 +973,36 @@ export default function DashboardPage() {
 
           /* ─── Despesas por Categoria ─────────────────── */
           else if (layout.id === 'categories') section = (
-            <Card className="h-full">
+            <Card className="h-full flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Despesas por Categoria</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1 flex flex-col">
                 {categoryExpenses.length === 0 ? (
-                  <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Sem dados para o período</div>
+                  <div className="flex items-center justify-center flex-1 min-h-[160px] text-muted-foreground text-sm">Sem dados para o período</div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie data={categoryExpenses} dataKey="total" nameKey="categoria_nome"
-                        cx="50%" cy="50%" outerRadius={80} label={(entry) => `${entry.percentual}%`} labelLine={false}>
-                        {categoryExpenses.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.categoria_cor || COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie data={categoryExpenses} dataKey="total" nameKey="categoria_nome"
+                          cx="50%" cy="50%" outerRadius={75} label={(entry) => `${entry.percentual}%`} labelLine={false}>
+                          {categoryExpenses.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.categoria_cor || COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-2 space-y-1.5 flex-1">
+                      {categoryExpenses.slice(0, 5).map((cat, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.categoria_cor || COLORS[i % COLORS.length] }} />
+                          <span className="flex-1 truncate text-muted-foreground">{cat.categoria_nome}</span>
+                          <span className="font-medium whitespace-nowrap">{cat.percentual}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -990,19 +1010,19 @@ export default function DashboardPage() {
 
           /* ─── Tendência 6 Meses ──────────────────────── */
           else if (layout.id === 'trend') section = (
-            <Card className="h-full">
+            <Card className="h-full flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Tendência — Últimos 6 Meses</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1">
                 {monthlyTrend.length === 0 ? (
-                  <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Sem dados suficientes</div>
+                  <div className="flex items-center justify-center min-h-[160px] text-muted-foreground text-sm">Sem dados suficientes</div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={220}>
+                  <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={monthlyTrend}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} width={65} tickFormatter={(v) => formatCurrency(v)} />
                       <Tooltip formatter={(value: number) => formatCurrency(value)} />
                       <Legend formatter={(value) => <span className="text-xs">{value}</span>} />
                       <Line type="monotone" dataKey="receita" stroke="#10B981" name="Receita" dot={false} strokeWidth={2} />
@@ -1017,19 +1037,19 @@ export default function DashboardPage() {
 
           /* ─── Gastos por Dia ─────────────────────────── */
           else if (layout.id === 'daily') section = (
-            <Card className="h-full">
+            <Card className="h-full flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Gastos por Dia do Mês</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1">
                 {dailyExpenses.length === 0 ? (
-                  <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">Sem dados para o período</div>
+                  <div className="flex items-center justify-center min-h-[160px] text-muted-foreground text-sm">Sem dados para o período</div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={180}>
+                  <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={dailyExpenses}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} width={65} tickFormatter={(v) => formatCurrency(v)} />
                       <Tooltip formatter={(value: number) => formatCurrency(value)} />
                       <Bar dataKey="total" fill="#3B82F6" radius={[2, 2, 0, 0]} />
                     </BarChart>

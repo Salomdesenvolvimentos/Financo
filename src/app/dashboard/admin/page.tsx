@@ -25,6 +25,8 @@ import {
   DollarSign,
   Calendar,
   Clock,
+  UserPlus,
+  X,
 } from 'lucide-react';
 
 const ADMIN_EMAIL = 'salomdesenvolvimentos@hotmail.com';
@@ -64,6 +66,13 @@ export default function AdminPage() {
   const [premiumPrice, setPremiumPrice] = useState('29.90');
   const [priceSaving, setPriceSaving] = useState(false);
   const [priceFeedback, setPriceFeedback] = useState<'ok' | 'error' | null>(null);
+
+  // Modal de novo usuário
+  const [showNewUser, setShowNewUser] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({ name: '', email: '', phone: '', password: '', role: 'cliente' });
+  const [newUserLoading, setNewUserLoading] = useState(false);
+  const [newUserError, setNewUserError] = useState<string | null>(null);
+  const [newUserSuccess, setNewUserSuccess] = useState(false);
 
   // Redirecionar se não for admin
   useEffect(() => {
@@ -173,6 +182,37 @@ export default function AdminPage() {
     }
   };
 
+  const createUser = async () => {
+    setNewUserError(null);
+    if (!newUserForm.name || !newUserForm.email || !newUserForm.password) {
+      setNewUserError('Preencha nome, e-mail e senha.');
+      return;
+    }
+    setNewUserLoading(true);
+    const token = await fetchToken();
+    if (!token) { setNewUserLoading(false); setNewUserError('Sessão expirada.'); return; }
+    try {
+      const res = await fetch(apiUrl('/api/admin/users'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newUserForm),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewUserSuccess(true);
+        setNewUserForm({ name: '', email: '', phone: '', password: '', role: 'cliente' });
+        loadUsers();
+        setTimeout(() => { setNewUserSuccess(false); setShowNewUser(false); }, 1500);
+      } else {
+        setNewUserError(data.error ?? 'Erro ao criar usuário.');
+      }
+    } catch {
+      setNewUserError('Erro de conexão.');
+    } finally {
+      setNewUserLoading(false);
+    }
+  };
+
   const savePrice = async () => {
     const price = parseFloat(premiumPrice.replace(',', '.'));
     if (isNaN(price) || price < 0) return;
@@ -225,10 +265,100 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold tracking-tight">Painel Admin</h1>
           <p className="text-sm text-muted-foreground">Gerenciamento de usuários e planos</p>
         </div>
-        <Button variant="outline" size="icon" className="ml-auto" onClick={loadUsers} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="default" size="sm" className="gap-2" onClick={() => { setShowNewUser(true); setNewUserError(null); setNewUserSuccess(false); }}>
+            <UserPlus className="h-4 w-4" />
+            Novo Acesso de Cliente
+          </Button>
+          <Button variant="outline" size="icon" onClick={loadUsers} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
+
+      {/* Modal — Novo Acesso de Cliente */}
+      {showNewUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-2xl bg-card border border-border shadow-2xl p-6 space-y-5 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Novo Acesso de Cliente</h2>
+              <button onClick={() => setShowNewUser(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nome Completo <span className="text-red-500">*</span></label>
+                <Input
+                  value={newUserForm.name}
+                  onChange={e => setNewUserForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Ex: João Silva"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Função <span className="text-red-500">*</span></label>
+                <select
+                  value={newUserForm.role}
+                  onChange={e => setNewUserForm(f => ({ ...f, role: e.target.value }))}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="cliente">Cliente</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">E-mail <span className="text-red-500">*</span></label>
+                <Input
+                  type="email"
+                  value={newUserForm.email}
+                  onChange={e => setNewUserForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="cliente@exemplo.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Telefone</label>
+                <Input
+                  value={newUserForm.phone}
+                  onChange={e => setNewUserForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Senha <span className="text-red-500">*</span></label>
+                <Input
+                  type="password"
+                  value={newUserForm.password}
+                  onChange={e => setNewUserForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+            </div>
+
+            {newUserError && (
+              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+                {newUserError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-1">
+              <Button variant="outline" onClick={() => setShowNewUser(false)} disabled={newUserLoading}>
+                Cancelar
+              </Button>
+              <Button onClick={createUser} disabled={newUserLoading} className="gap-2">
+                {newUserLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : newUserSuccess ? (
+                  <CheckCircle className="h-4 w-4 text-green-400" />
+                ) : (
+                  <UserPlus className="h-4 w-4" />
+                )}
+                {newUserSuccess ? 'Criado!' : 'Criar Usuário'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

@@ -136,6 +136,11 @@ export function AIChatBot() {
     }
   }, [isOpen, isMinimized]);
 
+  // Notifica outros componentes (ex: botão Tutorial) sobre abertura/fechamento
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(isOpen ? 'financo:chat-open' : 'financo:chat-close'));
+  }, [isOpen]);
+
   // Inicializar ao abrir
   const initialize = useCallback(async () => {
     if (!user || messages.length > 0) return;

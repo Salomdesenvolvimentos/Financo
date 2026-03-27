@@ -85,6 +85,52 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ users });
 }
 
+// POST /api/admin/users — criar novo usuário
+export async function POST(req: NextRequest) {
+  const { ok, error } = await verifyAdmin(req);
+  if (!ok) return NextResponse.json({ error }, { status: 403 });
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json(
+      { error: 'SUPABASE_SERVICE_ROLE_KEY não configurada. Adicione-a no arquivo .env.local (desenvolvimento) ou nas variáveis de ambiente do Vercel (produção).' },
+      { status: 500 },
+    );
+  }
+
+  let body: { name: string; email: string; password: string; phone?: string; role?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
+  }
+
+  const { name, email, password, phone, role } = body;
+  if (!name || !email || !password) {
+    return NextResponse.json({ error: 'Campos name, email e password são obrigatórios' }, { status: 400 });
+  }
+
+  const supabase = getServiceClient();
+
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name, phone: phone ?? '', role: role ?? 'cliente' },
+  });
+
+  if (createError) return NextResponse.json({ error: createError.message }, { status: 400 });
+
+  const userId = created.user.id;
+
+  // Inserir na tabela pública de usuários
+  await supabase.from('users').upsert(
+    { id: userId, email, nome: name, plan: 'free' },
+    { onConflict: 'id' },
+  );
+
+  return NextResponse.json({ success: true, userId });
+}
+
 // PATCH /api/admin/users — alterar plano de um usuário
 export async function PATCH(req: NextRequest) {
   const { ok, error } = await verifyAdmin(req);

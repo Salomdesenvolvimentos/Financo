@@ -203,8 +203,21 @@ export function SiteTour() {
   const pathname = usePathname();
   // tourActive: true enquanto o driver.js está rodando
   const [tourActive, setTourActive] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   // driverRef: mantém referência ao driver para permitir skip externo
   const driverRef = useState<{ destroy: () => void } | null>(null);
+
+  // Esconde o botão Tutorial enquanto o chat de IA estiver aberto
+  useEffect(() => {
+    const onOpen = () => setChatOpen(true);
+    const onClose = () => setChatOpen(false);
+    window.addEventListener('financo:chat-open', onOpen);
+    window.addEventListener('financo:chat-close', onClose);
+    return () => {
+      window.removeEventListener('financo:chat-open', onOpen);
+      window.removeEventListener('financo:chat-close', onClose);
+    };
+  }, []);
 
   const startTour = useCallback(async () => {
     if (typeof window === 'undefined') return;
@@ -292,7 +305,7 @@ export function SiteTour() {
   }, [user, pathname, startTour]);
 
   // Só renderiza no dashboard
-  if (pathname !== '/dashboard' || !user) return null;
+  if (pathname !== '/dashboard' || !user || chatOpen) return null;
 
   return (
     <button
